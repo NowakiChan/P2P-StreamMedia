@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain} = require('electron/main')
 const isDev = require('electron-is-dev')
 const path = require('node:path')
-const { webContents } = require('electron')
+const { webContents,screen } = require('electron')
 
 
 const mainWindow = () => {
@@ -45,6 +45,22 @@ const mainWindow = () => {
       }
       else if(msg === 'close'){
         win.close()
+      }
+      else if(msg === 'fullscreen'){
+        const maxwidth = screen.getPrimaryDisplay().workAreaSize.width;
+        const maxheight = screen.getPrimaryDisplay().workAreaSize.height;
+        win.setResizable(true)
+        win.setSize(maxwidth,maxheight)
+        win.webContents.send('window-height',maxheight)
+        win.center()
+        win.setResizable(false)
+      }
+      else if(msg === 'normalsize'){
+        win.setResizable(true)
+        win.setSize(1000,800)
+        win.webContents.send('window-height',800)
+        win.center()
+        win.setResizable(false)
       }
     })
 }

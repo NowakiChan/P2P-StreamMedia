@@ -1,0 +1,24 @@
+.main_hint_title{
+    app-region: no-drag;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 2px;
+}
+
+.main_hint_text{
+    app-region: no-drag;
+    color: #d3d5d7;
+    font-size: 15px;
+    letter-spacing: 1px;
+    font-weight: 400;
+}
+
+.main_hint_page{
+    app-region: no-drag;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%,-45%);
+}

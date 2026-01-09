@@ -2,34 +2,8 @@
     app-region: drag;
 }
 
-button,input,a,textarea{
+.sub{
     app-region: no-drag;
 }
 
-.item_hover{
-    opacity: 50%;
-    transform: scale(0.8);
-    filter: invert(100%);
-    app-region: no-drag;
-    transition: all 0.5s ease-in-out;
-}
 
-.item_hover:hover{
-    opacity: 100%;
-}
-
-.menu{
-    app-region: no-drag;
-    opacity: 90%;
-    filter: invert(100%);
-    cursor: pointer;
-}
-
-.menu p{
-    font-size: 15px;
-    font-weight: 500;
-    letter-spacing: 1px;
-    margin: 0 0;
-    padding: 0 0;
-    
-}
