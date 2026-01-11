@@ -28,7 +28,7 @@ function HomePage(){
             return(<h1>Browser Page</h1>)
         }
         else if(pageIndex === 'upload'){
-            return(<h1>Upload Page</h1>)
+            return(<h1>{(isLogin) ? 'Upload Page' : 'Please Login First'}</h1>)
         }
         else if(pageIndex === 'account'){
             return( <UserPanel /> )
@@ -63,7 +63,7 @@ function HomePage(){
                 <Box sx={{height:mainAreaHeight - 50,width:'100%',margin:'0 0',padding:'0 0'}}>
                     {/* <h2>main display area</h2> */}
                     <PageIndexContext value={setPageIndex}>
-                        <LoginStatusContext value={setLoginStatus}>
+                        <LoginStatusContext value={[isLogin,setLoginStatus]}>
                             {pageSelector()}
                         </LoginStatusContext>
                     </PageIndexContext>

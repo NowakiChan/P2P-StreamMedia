@@ -1,0 +1,20 @@
+.dialog_item{
+    transform: scale(0.8);
+    filter: invert(100%);
+    opacity: 50%;
+    transition: all 0.5s ease-in-out;
+}
+
+.dialog_item:hover{
+    opacity: 100%;
+    cursor: pointer;
+}
+
+.long_box{
+    width:100%;
+    flex-direction:row;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}

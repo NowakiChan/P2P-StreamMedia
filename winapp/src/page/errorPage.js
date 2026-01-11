@@ -40,3 +40,4 @@ export function LoadingPage(){
         <CircularProgress className='main_hint_page'/>
     )
 }
+
