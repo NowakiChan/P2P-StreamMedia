@@ -4,14 +4,17 @@
 #include<string>
 
 class AccountDB{
+private:
+    ThreadPool<Connector>* conn_pool;
 public:
+    AccountDB(ThreadPool<Connector>* pool) : conn_pool(pool) {}
     Json::Value SelectUserById(const std::string uid){
         // Json::Value res;
         const std::string sql_str = "SELECT userid,username,autograph,last_login_time,avator_link FROM media_user WHERE userid=" +
                                     uid;
         // conn.ExcuteSql(sql_str.c_str(),res,true);
 
-        return db_conn_pool.WaitFinish(sql_str,true);
+        return conn_pool->GetConnection()->Query(sql_str.c_str());
     }
 
     Json::Value SelectUserByName(const std::string username,bool fuzzy_search = true){
@@ -21,7 +24,7 @@ public:
         std::cout<<sql_str<<std::endl;
         // conn.ExcuteSql(sql_str.c_str(),res,true);
 
-        return db_conn_pool.WaitFinish(sql_str,true);
+        return conn_pool->GetConnection()->Query(sql_str.c_str());
     }
 
     Json::Value SelectUserByPwd(const std::string identity,const std::string pwd){
@@ -31,7 +34,7 @@ public:
         std::cout<<sql_str<<std::endl;
         // conn.ExcuteSql(sql_str.c_str(),res,true);
 
-        return db_conn_pool.WaitFinish(sql_str,true);
+        return conn_pool->GetConnection()->Query(sql_str.c_str());
     }
 
     Json::Value AddNewUser(const std::string username,const std::string pwd){
@@ -41,7 +44,7 @@ public:
         std::cout<<sql_str<<std::endl;
         // conn.ExcuteSql(sql_str.c_str(),res);
 
-        return db_conn_pool.WaitFinish(sql_str,true);
+        return conn_pool->GetConnection()->Execute(sql_str.c_str());
     }
 
     Json::Value DeleteUser(const std::string userid){
@@ -49,7 +52,7 @@ public:
         const std::string sql_str = "DELETE FROM media_user WHERE userid=" + userid;
         // conn.ExcuteSql(sql_str.c_str(),res);
 
-        return db_conn_pool.WaitFinish(sql_str,true);
+        return conn_pool->GetConnection()->Execute(sql_str.c_str());
     }
 
     Json::Value UpdateInfo(const std::string userid,const std::string new_username,const std::string new_autograph,const std::string new_pwd = "",bool pwd_only = false){
@@ -66,7 +69,19 @@ public:
         std::cout<<sql_str<<std::endl;
         // conn.ExcuteSql(sql_str.c_str(),res);
 
-        return db_conn_pool.WaitFinish(sql_str,true);
+        return conn_pool->GetConnection()->Execute(sql_str.c_str());
+    }
+
+    Json::Value UpdateLoginTime(const std::string userid){
+        const std::string sql_str = "UPDATE media_user SET last_login_time = NOW() WHERE userid=" + userid;
+        
+        return conn_pool->GetConnection()->Execute(sql_str.c_str());
+    }
+
+    Json::Value UpdateAvatorLink(const std::string userid,const std::string path){
+        const std::string sql_str = "UPDATE media_user SET avator_link = " + GetSqlStr(path) +
+                                    " WHERE userid=" + userid;
+        return conn_pool->GetConnection()->Execute(sql_str.c_str());
     }
 };
 

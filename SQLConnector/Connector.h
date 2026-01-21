@@ -4,8 +4,7 @@
 #include<jsoncpp/json/json.h>
 #include<cstring>
 #include<string>
-
-#include<iostream>
+#include<mutex>
 
 class DBConnectionConfig{
 public:
@@ -25,7 +24,6 @@ public:
 class Connector{
 private:
     MYSQL mysql_initializer;
-    DBConnectionConfig conn_config;
 private:
     /*这个函数无论如何都会返回一个Json数组或者空值，即便结果只有一行*/
     Json::Value ProcessResult(){
@@ -65,23 +63,15 @@ private:
         error_info["change_rows"] = (long)mysql_affected_rows(&mysql_initializer);
 
         return error_info;
-    }
-    
+    } 
 public:
-    Connector() = default;
+    /* 不允许默认构造，不允许拷贝赋值和拷贝构造 */
+    Connector() = delete;
+    Connector operator = (const Connector& _conn) = delete;
+    Connector(const Connector& _conn) = delete;
+ 
 
-    // Connector operator = (const Connector& _conn){
-    //     std::cout<<"using operator overload\n";
-    //     this->conn_config = _conn.GetConnectConfig();
-    //     mysql_init(&this->mysql_initializer);
-    //     mysql_real_connect(&this->mysql_initializer,this->conn_config.host.c_str(),
-    //                        this->conn_config.user.c_str(),this->conn_config.pwd.c_str(),
-    //                        this->conn_config.db_name.c_str(),this->conn_config.port,NULL,0);
-
-    //     return *this;
-    // }
-
-    Connector(const DBConnectionConfig config) : conn_config(config){
+    Connector(const DBConnectionConfig& config) {
         mysql_library_init(0,NULL,NULL);
         mysql_init(&mysql_initializer);
         mysql_real_connect(&mysql_initializer,config.host.c_str(),config.user.c_str(),
@@ -93,20 +83,25 @@ public:
         mysql_init(&mysql_initializer);
         mysql_real_connect(&mysql_initializer,host,username,
                            pwd,db_name,port,NULL,0);
-        conn_config = DBConnectionConfig(host,username,pwd,db_name,port);
     }
 
-    DBConnectionConfig GetConnectConfig() const { return conn_config; }
-
-    void ExcuteSql(const char* sql_str,Json::Value& result,bool with_result = false){
+    Json::Value Query(const char* sql_str){
+        Json::Value excute_result;
         mysql_real_query(&mysql_initializer,sql_str,strlen(sql_str));
     
-        Json::Value excute_result = GetExcuteInfo();
-        if(with_result && excute_result["errorid"].asInt() == 0){
+        excute_result = GetExcuteInfo();
+        if(excute_result["errorid"].asInt() == 0)
             excute_result["data"] = ProcessResult();
-        }
+        else
+            excute_result["data"] = Json::nullValue;
+        return excute_result;
+    }
 
-        result = excute_result;
+    Json::Value Execute(const char* sql_str){
+        mysql_real_query(&mysql_initializer,sql_str,strlen(sql_str));
+        Json::Value excute_result = GetExcuteInfo(); 
+
+        return excute_result;
     }
 
     bool Error(){

@@ -9,8 +9,7 @@
 #include"../SQLConnector/ThreadPool.h"
 // static Connector conn("root","","localhost","StreamMedia");
 /*数据库连接的全局配置,以后这个配置要从文件读取*/
-static const DBConnectionConfig global_config("localhost","root","","StreamMedia");
-static SQLThreadPool db_conn_pool(global_config,20);
+static const DBConnectionConfig global_mysql_config("localhost","root","","StreamMedia");
 
 inline std::string GetSqlStr(const std::string str){
     return std::string("'" + str + "'");
