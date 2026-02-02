@@ -9,6 +9,7 @@ private:
     void LoadServerConfig(const Json::Value& config){
         if(config.isMember("address")) address = config["address"].asString();
         if(config.isMember("port")) port = config["port"].asUInt();
+        if(config.isMember("file_size_limit")) upload_size_limit = config["file_size_limit"].asUInt();
         if(config.isMember("file_path")){
             if(config["file_path"].isMember("user_file"))
                 user_file_storage_path = config["file_path"]["user_file"].asString();
@@ -39,6 +40,7 @@ public:
     std::string tmp_file_storage_path;
     std::string log_file_storage_path;
     unsigned int port;
+    unsigned int upload_size_limit = 10 * 1024 * 1024;
 };
 
 void ServerConfig::LoadConfigFromFile(const std::string& file_path){
@@ -67,7 +69,9 @@ public:
     P2PServer(const ServerConfig& config) : svr_config(config) , port(config.port) ,
                                             mysql_conn_pool(ThreadPool<Connector>(config.mysql_config)) ,
                                             redis_conn_pool(ThreadPool<RedisConnector>(config.redis_config))
-    {}
+    {
+        server_core.set_payload_max_length(config.upload_size_limit);
+    }
 
     P2PServer(const DBConnectionConfig& mysql_config,const DBConnectionConfig& redis_config,
               const unsigned int running_port = 80)
@@ -77,7 +81,7 @@ public:
     {}
 
     template<typename T>
-    void JoinLastPath(T &&plugin){
+    void JoinPath(T &&plugin){
         plugin.AddPath(&server_core);
     }
 

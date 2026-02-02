@@ -16,6 +16,7 @@ int main(int arg,char* args[]){
     try{
         ServerConfig config(config_path);
         P2PServer svr(config);
+        svr.JoinPath(AccountPlugin(svr.GetMysqlPool(),config.user_file_storage_path));
         std::cout<<"Server now start running at port : "<<config.port<<"\n";
         svr.Start();
     }
