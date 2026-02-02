@@ -53,6 +53,8 @@ find_library(REDIS_PLUS_PLUS_LIB redis++)
 
 find_path(HTTPLIB_DIR httplib.h)
 
+find_path(JWTCPP_DIR jwt-cpp/jwt.h)
+
 
 file(GLOB SRC_FILES
     "${PROJECT_SOURCE_DIR}/*/*.h"
@@ -68,6 +70,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${HIREDIS_DIR}
     ${REDIS_PLUS_PLUS_DIR}
     ${HTTPLIB_DIR}
+    ${JWTCPP_DIR}
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${MYSQL_CLIENT_LIB})
