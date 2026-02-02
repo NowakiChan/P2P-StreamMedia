@@ -2,6 +2,7 @@
 #define ACCOUNT_PLUGIN
 #include"./AccountDB.h"
 #include"../Plugins/ResponseCode.h"
+#include<jsoncpp/json/json.h>
 #include<httplib.h>
 #include<jwt-cpp/jwt.h>
 #include<cstdio>
@@ -12,14 +13,14 @@
 class AccountPlugin{
 private:
     AccountDB db_interface;
-    std::string avator_storge_path;
+    const char* avator_storge_path;
 private:
     Json::Value GetToken(std::string);
     int SetPassword(const Json::Value&);
     int UpdateAvator(const std::string,const std::string,const std::string,const std::string);
 public:
     AccountPlugin(ThreadPool<Connector>* pool,const std::string& storge_path)
-                 : db_interface(AccountDB(pool)) , avator_storge_path(storge_path)
+                 : db_interface(AccountDB(pool)) , avator_storge_path(storge_path.c_str())
     {}
 
     virtual void AddPath(httplib::Server* server){
@@ -49,6 +50,10 @@ public:
 
         server->Post("/user/avator",[&](const httplib::Request& req, httplib::Response& res){        
             UploadAvator(req,res);
+        });
+
+        server->Get("/user/avator",[&](const httplib::Request& req, httplib::Response& res){
+            FetchAvator(req,res);
         });
 
         server->Get("/user/info",[&](const httplib::Request& req, httplib::Response& res){   
@@ -116,8 +121,13 @@ public:
                 token_verifier.verify(decoded_token);
                 const std::string id = decoded_token.get_payload_claim("userid").as_string();
                 
-                res["status"] = (db_interface.SelectUserById(id)["data"] != Json::nullValue) ?
-                                OK : VERIFY_ERR;
+                if(db_interface.SelectUserById(id)["data"] != Json::nullValue){
+                    res["status"] = OK;
+                    db_interface.UpdateLoginTime(id);
+                }
+                else res["status"] = VERIFY_ERR;
+                // res["status"] = (db_interface.SelectUserById(id)["data"] != Json::nullValue) ?
+                //                 OK : VERIFY_ERR;
 
             }
             catch(jwt::error::token_verification_exception){
@@ -177,15 +187,17 @@ public:
 
     void UploadAvator(const httplib::Request& req,httplib::Response& res){
         auto file = req.get_file_value("avator_file");
-        auto param = req.params.find("id");
+        auto param = req.get_param_value("userid");
+        std::string filename = file.filename;
+        filename.erase(std::remove(filename.begin(),filename.end(),' '),filename.end());
         Json::Value result,db_res;
-        if(param != req.params.end()){
-            db_res = db_interface.SelectUserById(param->second);
+        if(param.size() > 0){
+            db_res = db_interface.SelectUserById(param);
             if(db_res["data"] != Json::nullValue){
-                const std::string file_name = avator_storge_path + "/avator_" + 
-                                              db_res["data"][0]["userid"].asString() + file.filename;
-                const std::string old_file_path = (db_res["data"][0]["userid"].asString() == "NULL")
-                                                  ? "" : db_res["data"][0]["userid"].asString();
+                const std::string file_name = std::string(avator_storge_path) + "/avator_" + 
+                                              db_res["data"][0]["userid"].asString() + "_" + filename;
+                const std::string old_file_path = (db_res["data"][0]["avator_link"].asString() == "NULL")
+                                                  ? "" : db_res["data"][0]["avator_link"].asString();
                 result["status"] = (UpdateAvator(db_res["data"][0]["userid"].asString(),file_name,
                                                  file.content,old_file_path) == 1) ? OK : INTERNAL_ERR;
             }
@@ -220,6 +232,33 @@ public:
         }
         return res.toStyledString();
     }
+
+    void FetchAvator(const httplib::Request& req,httplib::Response& res){
+        auto userid = req.get_param_value("userid");
+        auto SendFileData = [&](const std::string& path,httplib::Response& r){
+            std::ifstream fin(path,std::ios::in | std::ios::binary);
+            std::string type = path.substr(path.find_last_of('.') + 1);
+            if(type == "jpg") type = "jpeg";
+
+            if(fin.is_open()){
+                std::ostringstream stream;
+                stream << fin.rdbuf();
+                fin.close();
+
+                res.set_content(stream.str(),"image/" + type);
+            }
+            else res.set_content("","text/plain");
+        };
+        if(userid.size() > 0){
+            Json::Value db_res = db_interface.SelectUserById(userid);
+            if(db_res["data"] != Json::nullValue){
+                SendFileData(db_res["data"][0]["avator_link"].asString(),res);
+                return;
+            }
+        }
+    
+        res.set_content("","text/plain");
+    }
 };
 
 Json::Value AccountPlugin::GetToken(std::string user_identity){
@@ -250,8 +289,11 @@ int AccountPlugin::UpdateAvator(const std::string userid,const std::string new_f
         Json::Value res = db_interface.UpdateAvatorLink(id,filename);
         if(res["errorid"].asInt() == 0){
             std::ofstream fout(filename,std::ios::out | std::ios::binary);
-            fout << content;
-            return 1;
+            if(fout.is_open()){
+                fout << content;
+                fout.close();
+                return 1;
+            }
         }
         return 0;
     };

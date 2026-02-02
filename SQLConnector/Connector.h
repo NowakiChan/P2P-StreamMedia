@@ -5,6 +5,7 @@
 #include<cstring>
 #include<string>
 #include<mutex>
+#include"../Plugins/DataPlugins.h"
 
 class DBConnectionConfig{
 public:
@@ -13,12 +14,35 @@ public:
     std::string pwd;
     std::string db_name;
     unsigned int port;
+    unsigned int conn_pool_max_size = 20;
+    unsigned int conn_pool_min_size = 5;
+    unsigned int conn_pool_refresh_time = 20;
     DBConnectionConfig() = default;
 
     DBConnectionConfig(const char* _host,const char* _user,const char* _pwd,
-                       const char* _db_name,const unsigned int _port = 3306) :
-                       host(_host) , user(_user) , pwd(_pwd) , db_name(_db_name) , port(_port)
+                       const char* _db_name,const unsigned int _port = 3306,
+                       const unsigned int pool_maxsize = 20,const unsigned int pool_minsize = 5,
+                       const unsigned int pool_refresh_time = 20) :
+                       host(_host) , user(_user) , pwd(_pwd) , db_name(_db_name) , port(_port) ,
+                       conn_pool_max_size(pool_maxsize) , conn_pool_min_size(pool_minsize),
+                       conn_pool_refresh_time(pool_refresh_time)
     {}
+
+    DBConnectionConfig(const Json::Value& config){
+        if(config.isMember("host")) host = config["host"].asString();
+        if(config.isMember("user")) user = config["user"].asString();
+        if(config.isMember("pwd")) pwd = config["pwd"].asString();
+        if(config.isMember("db")) db_name = config["db"].asString();
+        if(config.isMember("port")) port = config["port"].asUInt();
+        if(config.isMember("pool")){
+            if(config["pool"].isMember("maxsize"))
+                conn_pool_max_size = config["pool"]["maxsize"].asUInt();
+            if(config["pool"].isMember("minsize"))
+                conn_pool_min_size = config["pool"]["minsize"].asUInt();
+            if(config["pool"].isMember("refresh"))
+                conn_pool_refresh_time = config["pool"]["refresh"].asUInt();
+        } 
+    }
 };
 
 class Connector{
@@ -44,12 +68,13 @@ private:
         MYSQL_ROW current_row = mysql_fetch_row(mysql_res);
         for(int j = 0;j < row_number;j++){
             for(int i = 0;i < field_number;i++){
-                row_res[field_name[i]] = (current_row[i] == NULL) ? "NULL" : current_row[i];
+                // row_res[field_name[i]] = (current_row[i] == NULL) ? "NULL" : current_row[i];
+                GetValue(current_row[i],row_res[field_name[i]]);
             }
 
             res.append(row_res);
 
-            mysql_fetch_row(mysql_res);
+            current_row = mysql_fetch_row(mysql_res);
         }
 
         mysql_free_result(mysql_res);
@@ -61,9 +86,28 @@ private:
         error_info["errorid"] = mysql_errno(&mysql_initializer);
         error_info["details"] = mysql_error(&mysql_initializer);
         error_info["change_rows"] = (long)mysql_affected_rows(&mysql_initializer);
+        if(error_info["errorid"].asInt() != 0){
+            std::cout<<"error "<<error_info["errorid"].asInt()<<" : "<<error_info["details"].asString()<<"\n";
+        }
 
         return error_info;
-    } 
+    }
+
+    // 用于根据字符串内容返回具体类型的函数，使用auto和decltype来推断返回内容
+    void GetValue(const char* param,Json::Value& v){
+        if(param == NULL){
+            v = Json::nullValue;
+        }
+        else if(IsDigitStr(param)){
+            v = std::atoi(param);
+        }
+        else if(param == "true" || param == "false"){
+            v = (param == "true");            
+        }
+        else{
+            v = param;
+        }
+    }
 public:
     /* 不允许默认构造，不允许拷贝赋值和拷贝构造 */
     Connector() = delete;
@@ -86,6 +130,9 @@ public:
     }
 
     Json::Value Query(const char* sql_str){
+        {
+            std::cout<<"Query -> "<<sql_str<<";\n";
+        }
         Json::Value excute_result;
         mysql_real_query(&mysql_initializer,sql_str,strlen(sql_str));
     
@@ -98,6 +145,9 @@ public:
     }
 
     Json::Value Execute(const char* sql_str){
+        {
+            std::cout<<"Execute -> "<<sql_str<<";\n";
+        }
         mysql_real_query(&mysql_initializer,sql_str,strlen(sql_str));
         Json::Value excute_result = GetExcuteInfo(); 
 

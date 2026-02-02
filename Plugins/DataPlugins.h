@@ -6,10 +6,11 @@
 #include<string>
 #include<cstring>
 #include<openssl/evp.h>
-#include"../SQLConnector/ThreadPool.h"
+#include<jsoncpp/json/json.h>
+// #include"../SQLConnector/ThreadPool.h"
 // static Connector conn("root","","localhost","StreamMedia");
 /*数据库连接的全局配置,以后这个配置要从文件读取*/
-static const DBConnectionConfig global_mysql_config("localhost","root","","StreamMedia");
+// static const DBConnectionConfig global_mysql_config("localhost","root","","StreamMedia");
 
 inline std::string GetSqlStr(const std::string str){
     return std::string("'" + str + "'");
@@ -67,4 +68,23 @@ bool ComputeSHA256(const std::string& unhashed, std::string& hashed)
     return success;
 }
 
+inline std::string GetRedisStr(int&& value){
+    return std::to_string(value);
+}
+
+inline std::string GetRedisStr(double&& value){
+    return std::to_string(value);
+}
+
+inline std::string GetRedisStr(float&& value){
+    return std::to_string(value);
+}
+
+inline std::string GetRedisStr(std::string&& str){
+    return str;
+}
+
+inline std::string GetRedisStr(const char* str){
+    return str;
+}
 #endif

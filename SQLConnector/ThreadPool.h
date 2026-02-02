@@ -26,10 +26,10 @@ public:
 private:
     void MonitorThread();
 public:
-    ThreadPool(const DBConnectionConfig& conn_config,const unsigned int max_conn_num = 20,
-               const unsigned int min_conn_num = 2,const unsigned int scan_interval = 10)
-               : max_connect_num(max_conn_num) , mininum_connect_num(min_conn_num) , open(true) ,
-                 monitor_sleep_time(scan_interval) , config(conn_config) ,
+    ThreadPool(const DBConnectionConfig& conn_config)
+               : max_connect_num(conn_config.conn_pool_max_size) , 
+                 mininum_connect_num(conn_config.conn_pool_min_size) , open(true) ,
+                 monitor_sleep_time(conn_config.conn_pool_refresh_time) , config(conn_config) ,
                  monitor_thread(std::thread(std::bind(&ThreadPool::MonitorThread,this)))
     {
         monitor_thread.detach();
