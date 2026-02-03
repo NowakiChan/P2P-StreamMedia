@@ -56,6 +56,9 @@ private:
         /*在mysql_real_query到mysql_store_res之间线程不安全*/
         MYSQL_RES* mysql_res = mysql_store_result(&mysql_initializer);
         const int field_number = mysql_num_fields(mysql_res),row_number = mysql_num_rows(mysql_res);
+        //如果行数为0,则直接返回结果
+        if(row_number == 0) return Json::nullValue;
+
         std::string field_name[field_number];
 
         //读取列内容

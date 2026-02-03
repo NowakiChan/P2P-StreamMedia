@@ -85,6 +85,7 @@ public:
                                   : Json::nullValue;
                 
                 /* 更新登录时间 */
+                std::cout<<db_res["data"].toStyledString()<<"\n";
                 if(db_res["data"] != Json::nullValue)
                     db_res = db_interface.UpdateLoginTime(db_res["data"][0]["userid"].asString());
                 if(db_res["errorid"].asInt() != 0 || db_res["change_rows"].asInt() == 0){
