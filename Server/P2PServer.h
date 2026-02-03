@@ -93,7 +93,8 @@ public:
 
     void Start(){
         running_flag = true;
-        server_core.listen("localhost",port);
+        std::cout<<"server running at -> "<<svr_config.address<<":"<<svr_config.port<<"\n";
+        server_core.listen(svr_config.address,svr_config.port);
     }
 
     void Stop(){
