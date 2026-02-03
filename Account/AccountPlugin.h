@@ -80,7 +80,7 @@ public:
             if(db_res["errorid"].asInt() == 0){
                 result["status"] = (db_res["data"] == Json::nullValue) ? VERIFY_ERR : OK;
                 result["userid"] = (db_res["data"] == Json::nullValue) ? Json::nullValue : db_res["data"][0]["userid"];
-                result["token"] = (req["keepAlive"].asBool()) 
+                result["token"] = (req["keepAlive"].asBool() && db_res["data"] != Json::nullValue) 
                                   ? GetToken(db_res["data"][0]["userid"].asString()) 
                                   : Json::nullValue;
                 
