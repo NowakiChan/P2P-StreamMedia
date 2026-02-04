@@ -188,16 +188,28 @@ public:
 
     void UploadAvator(const httplib::Request& req,httplib::Response& res){
         Json::Value result,db_res;
-        if(!req.is_multipart_form_data()){
+        // if(!req.is_multipart_form_data()){
+        //     result["status"] = DATA_FORMAT_ERR;
+        //     res.set_content(result.toStyledString(),JSON_HTML_TYPE);
+        //     return;
+        // }
+        // auto file = req.get_file_value("avator_file");
+        if(!req.has_param("userid")){
+            result["status"] = INVAILD_PARAM;
+            res.set_content(result.toStyledString(),JSON_HTML_TYPE);
+            return;
+        }
+        // 获取文件
+        auto data = req.form.files.find("avatar_file");
+        if(data == req.form.files.end()){
             result["status"] = DATA_FORMAT_ERR;
             res.set_content(result.toStyledString(),JSON_HTML_TYPE);
             return;
         }
-        // auto file = req.get_file_value("avator_file");
-        auto data = req.form.files.begin();
         auto file = data->second;
 
         auto param = req.get_param_value("userid");
+        std::cout<<"Uploader : Get UID -> "<<param<<"\n";
         // 清除文件名里的空格
         std::string filename = file.filename;
         filename.erase(std::remove(filename.begin(),filename.end(),' '),filename.end());
@@ -212,8 +224,9 @@ public:
                 result["status"] = (UpdateAvator(db_res["data"][0]["userid"].asString(),file_name,
                                                  file.content,old_file_path) == 1) ? OK : INTERNAL_ERR;
             }
+            else result["status"] = VERIFY_ERR;
         }
-        else result["status"] = DATA_FORMAT_ERR;
+        else result["status"] = DATA_NOT_FOUND;
 
         res.set_content(result.toStyledString(),JSON_HTML_TYPE);
     }
