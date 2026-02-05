@@ -13,6 +13,8 @@ import PolylineSharpIcon from '@mui/icons-material/PolylineSharp';
 import './home.css';
 import './navigate.css';
 import { useState } from 'react';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
 
 export function WindowNavigate({flag,setFlag,sendSizeChange}){
     const fullScreen = () => {
@@ -27,7 +29,7 @@ export function WindowNavigate({flag,setFlag,sendSizeChange}){
     }
 
     return(
-        <Stack direction='row' spacing={1.5} sx={{position:'relative',top:12,left:(flag) ? 5 : 130}}className='main'>
+        <Stack direction='row' spacing={1.5} className='main' sx={{position:'absolute',right:0,paddingRight:2}}>
             <RemoveSharpIcon className='item_hover' onClick={() => window.windowAPI.setMsg('mininum')}/>
             {(flag) ? <FullscreenSharpIcon className='item_hover' onClick={fullScreen}/>
                           : <FullscreenExitSharpIcon className='item_hover' onClick={normalScreen}/>}
@@ -36,60 +38,24 @@ export function WindowNavigate({flag,setFlag,sendSizeChange}){
     )
 }
 
-export function MenuNavigate({setIndex,children}){
-    const [navi_pos,setPos] = useState(183) // default 160, +100 for each
+export function MenuNavigate({setIndex}){
+    // 用于tab切页
+    const [index,setPageIndex] = useState(0)
 
     return(
-        <>
-            <Stack direction='row' spacing={5} sx={{textAlign:'center'}} className='main'>
-                <Stack direction='row' spacing={0.8} className='menu' sx={{top:'50%',transform:'translate(0,50%)'}} 
-                       onClick={() => {
-                            setPos(183)
-                            setIndex('browser')
-                        }}>
-                    <StorageSharpIcon />
-                    <p>资源</p>
-                </Stack>
-                <Stack direction='row' spacing={0.8} className='menu' sx={{top:'50%',transform:'translate(0,50%)'}}
-                       onClick={() => {
-                            setPos(287)
-                            setIndex('upload')
-                        }}>
-                    <FileUploadSharpIcon />
-                    <p>上传</p>
-                </Stack>
-                <Stack direction='row' spacing={0.8} className='menu' sx={{top:'50%',transform:'translate(0,50%)'}} 
-                       onClick={() => {
-                            setPos(388)
-                            setIndex('account')
-                        }}>
-                    <AccountCircleSharpIcon />
-                    <p>账号</p>
-                </Stack>
-                <Stack direction='row' spacing={0.8} className='menu' sx={{top:'50%',transform:'translate(0,50%)'}} 
-                       onClick={() => {
-                            setPos(490)
-                            setIndex('setting')
-                        }}>
-                    <SettingsSharpIcon />
-                    <p>设置</p>
-                </Stack>
-            </Stack>
-            <Box sx={{width:65,height:48,position:'fixed',
-                      top:0,left:navi_pos,
-                      borderBottom:'4px solid white',
-                      transition:'all 0.3s ease-in-out'}}>
-                <ArrowDropUpSharpIcon sx={{filter:'invert(100%)',
-                                           position:'absolute',bottom:-10,
-                                           left:'50%',transform:'translateX(-50%)'}}/>
-            </Box>
-        </>
+        <Tabs value={index} onChange={(event,newIndex) => setPageIndex(newIndex)} 
+            className='sub' textColor='white' indicatorColor='white'>
+            <Tab icon={<StorageSharpIcon />} label='资源' iconPosition='start' onClick={() => setIndex('browser')} sx={{color:'white'}}/>
+            <Tab icon={<FileUploadSharpIcon />} label='上传' iconPosition='start' onClick={() => setIndex('upload')} sx={{color:'white'}}/>
+            <Tab icon={<AccountCircleSharpIcon />} label='个人' iconPosition='start' onClick={() => setIndex('account')} sx={{color:'white'}}/>
+            <Tab icon={<SettingsSharpIcon />} label='设置' iconPosition='start' onClick={() => setIndex('setting')} sx={{color:'white'}}/>
+        </Tabs>
     )
 }
 
 export function NavigateLogo(){
     return(
-        <Stack direction='row' spacing={2} sx={{top:'50%',transform:'translate(0,50%)'}}>
+        <Stack direction='row' spacing={1} >
             <PolylineSharpIcon sx={{transform:'scale(1.3)',filter:'invert(100%)'}}/>
             <h2 style={{fontWeight:'bold',letterSpacing:'6px',color:'white',fontSize:'18px'}} className='main'>Cloud</h2>
         </Stack>

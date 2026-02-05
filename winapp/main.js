@@ -1,7 +1,9 @@
-const { app, BrowserWindow, ipcMain} = require('electron/main')
+const { app, BrowserWindow, ipcMain, protocol, net} = require('electron/main')
 const isDev = require('electron-is-dev')
 const path = require('node:path')
-const { webContents,screen } = require('electron')
+const { webContents,screen,dialog } = require('electron')
+const { openFileDialog,downLoadFile,uploadFile,readCacheFile,setCacheFile,setLocalSettings, getSettings } = require('./function/file.js')
+const { svrRequest,svrURL } = require('./function/request.js')
 
 
 const mainWindow = () => {
@@ -12,7 +14,7 @@ const mainWindow = () => {
             frame: false,
             resizable: false,
             webPreferences:{
-              preload: path.join(__dirname, './function/window.js'),
+              preload: path.join(__dirname, './function/preload.js'),
               // contextIsolation: true,
               // nodeIntegration: false,
               // sandbox: false
@@ -35,7 +37,28 @@ const mainWindow = () => {
     //         slashes: true
     //       }))
     // }
-    webContents.add
+    // webContents.add
+    win.webContents.once('did-finish-load', async () => {
+      const settings = getSettings('token','tokenUID')
+      console.log('Main Thread : Try read token -> ',settings)
+      if(settings && settings.token && settings.tokenUID){
+        const res = await svrRequest(null,{
+          url: `${svrURL}/user/tokenverify`,
+          method: 'POST',
+          headers:{
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            token: settings.token
+          })
+        })
+
+        win.webContents.send('token-verify',{
+          ...res,
+          uid: settings.tokenUID
+        })
+      }
+    })
 
     ipcMain.on('window-api',(event,msg) => {
       console.log(msg)
@@ -63,16 +86,47 @@ const mainWindow = () => {
         win.setResizable(false)
       }
     })
+  
+    
 }
 
 
 app.whenReady().then(() => {
+    // 主进程handle
+    ipcMain.handle('operation:openfile', openFileDialog)
+    ipcMain.handle('operation:netRequest',svrRequest)
+    ipcMain.handle('operation:download',downLoadFile)
+    ipcMain.handle('operation:upload',async (_,{url,data}) => {
+      return uploadFile(url,data)
+    })
+    ipcMain.handle('localdata:savesetting',setLocalSettings)
+    // 读取设置并检索本地目录
+    readCacheFile().then(setting => console.log("Main Thread : Reading Local settings -> ",setting))
+
+    // 注册协议用于处理本地资源
+    protocol.registerFileProtocol('local', (request, callback) => {
+      const filePath = decodeURIComponent(
+        request.url.replace('local://', '')
+      );
+      console.log(filePath)
+      callback({ path: filePath });
+    })
+
+    // 启动应用
     mainWindow()
 
     app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
     }
+
+  })
+})
+
+app.on('before-quit',() => {
+  setCacheFile().then(res => {
+    if(res) console.log('Main Thread : Successfully save settings')
+    else console.log('Main Thread : Failed in save settings')
   })
 })
 

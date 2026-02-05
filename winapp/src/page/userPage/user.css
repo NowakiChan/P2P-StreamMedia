@@ -18,3 +18,70 @@
     justify-content: center;
     position: relative;
 }
+
+.user_title{
+    color:black;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.user_id_title{
+    color: gray;
+    font-weight: 500;
+}
+
+.user_autograph, .user_autograph_title{
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.user_autograph{
+    font-weight: 400; 
+}
+
+.user_autograph_title{
+    font-weight: 500;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+.data_box{
+    height: 30;
+    align-items: center;
+    justify-content: center;
+    margin: 0 0;
+}
+
+
+
+.data_box h2{
+    padding: 0 0;
+    margin: 0 0;
+    font-weight: 400;
+    font-size: 20px;
+}
+
+.data_box h4{
+    padding: 0 0;
+    margin: 0 0;
+    font-size: 15px;
+    letter-spacing: 2px;
+    font-weight: 400;
+}
+
+.center_box{
+    position: relative;
+    left: 50%;
+    top:0;
+    transform: translateX(-50%);
+}
+
+.info_data_table_cell{
+    width: 80;
+    padding-top: 1;
+    padding-bottom: 1;
+    padding-left: 0;
+    padding-right: 0;
+}
