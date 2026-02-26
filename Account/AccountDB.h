@@ -11,7 +11,7 @@ public:
     AccountDB(ThreadPool<Connector>* pool) : conn_pool(pool) {}
     Json::Value SelectUserById(const std::string uid){
         // Json::Value res;
-        const std::string sql_str = "SELECT userid,username,autograph,last_login_time,avator_link,register_time FROM media_user WHERE userid=" +
+        const std::string sql_str = "SELECT userid,username,autograph,last_login_time,register_time FROM media_user WHERE userid=" +
                                     uid;
         // conn.ExcuteSql(sql_str.c_str(),res,true);
 
@@ -20,7 +20,7 @@ public:
 
     Json::Value SelectUserByName(const std::string username,bool fuzzy_search = true){
         // Json::Value res;
-        const std::string sql_str = "SELECT userid,username,autograph,last_login_time,avator_link,register_time FROM media_user WHERE username" +
+        const std::string sql_str = "SELECT userid,username,autograph,last_login_time,register_time FROM media_user WHERE username" +
                                     std::string(((fuzzy_search) ? (" like ") : "=")) + ((fuzzy_search) ? GetSqlStr("%" + username + "%") : GetSqlStr(username));
         // conn.ExcuteSql(sql_str.c_str(),res,true);
 
