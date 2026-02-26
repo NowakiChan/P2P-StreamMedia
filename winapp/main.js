@@ -74,14 +74,14 @@ const mainWindow = () => {
         const maxheight = screen.getPrimaryDisplay().workAreaSize.height;
         win.setResizable(true)
         win.setSize(maxwidth,maxheight)
-        win.webContents.send('window-height',maxheight)
+        win.webContents.send('window-size',{width:maxwidth,height:maxheight})
         win.center()
         win.setResizable(false)
       }
       else if(msg === 'normalsize'){
         win.setResizable(true)
         win.setSize(1000,800)
-        win.webContents.send('window-height',800)
+        win.webContents.send('window-size',{width:1000,height:800})
         win.center()
         win.setResizable(false)
       }

@@ -13,6 +13,8 @@ import CloseSharpIcon from '@mui/icons-material/CloseSharp';
 import PortraitSharpIcon from '@mui/icons-material/PortraitSharp';
 import FileUploadSharpIcon from '@mui/icons-material/FileUploadSharp';
 import FolderSharpIcon from '@mui/icons-material/FolderSharp';
+import ExpandMoreSharpIcon from '@mui/icons-material/ExpandMoreSharp';
+import ManageAccountsSharpIcon from '@mui/icons-material/ManageAccountsSharp';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -27,7 +29,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import { AccountOperatePage, LogoutPage, CloseIcon, PwdModifyPage, PageAlert } from './backDropPage';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { LoginStatusContext,WindowSizeContext,IDContext,PageHintContext } from '../home';
+import { LoginStatusContext,WindowSizeContext,PageHintContext, UserInfoContext } from '../home';
 import { getUID } from '../function';
 import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
@@ -41,32 +43,19 @@ import ToggleButton from '@mui/material/ToggleButton';
 import AvatarEditor from 'react-avatar-editor'
 import Slider from '@mui/material/Slider';
 import Skeleton from '@mui/material/Skeleton';
+import Collapse from '@mui/material/Collapse';
 
 // export const RefreshContext = createContext(null)
 
 export function UserPanel({show = true}){
     const [loginStatus,setLoginStatus] = useContext(LoginStatusContext)
-    const [windowSizeFlag,windowSize] = useContext(WindowSizeContext)
-    const [userId,setId] = useContext(IDContext)
+    // const [windowSizeFlag,windowSize] = useContext(WindowSizeContext)
+    // const [userId,setId] = useContext(IDContext)
+    const [userInfo,setUserInfo] = useContext(UserInfoContext)
     const setHint = useContext(PageHintContext)
     const [infoReady,setReady] = useState(true) // 用于在信息加载完成后再显示组件，避免用户看到原始数据
-    const [userInfo,setInfo] = useState({
-        avatar_link : null,
-        userid : 0,
-        username : 'Unknown',
-        autograph : '',
-        last_login_time : '1990-01-01 00:00:00',
-        register_time : '1990-01-01 00:00:00',
-        works : 0,
-        likes : 0,
-        comments : 0,
-        avatar_file_link : null
-    })
-    // 用于加载用户数据
-    const [refreshFlag,setFlag] = useState(true)
-    // const refreshInfo = () => { setFlag(!refreshFlag) } // 用于刷新信息
     const refreshAvatar = async () => {
-        const {buffer,status,contentType} = await window.svrAPI.download(`${window.svrAPI.url}/user/avator?userid=${userId}`)
+        const {buffer,status,contentType} = await window.svrAPI.download(`${window.svrAPI.url}/user/avator?userid=${userInfo.userid}`)
         // console.log('status=',status,' : type=',contentType)
         if(status === 200){
             const blob = new Blob([buffer],{type: contentType})
@@ -79,7 +68,7 @@ export function UserPanel({show = true}){
     } // 用于刷新头像及头像获取
 
     useEffect(() =>{
-        if(!loginStatus || !userId || userId === 0) return
+        if(!loginStatus || !userInfo.userid || userInfo.userid === 0) return
 
         setReady(false)
         const tryGetInfo = async () => {
@@ -87,11 +76,12 @@ export function UserPanel({show = true}){
                 url:`${window.svrAPI.url}/user/info`,
                 method:'GET',
                 headers:{},
-                params:{ id: userId}
+                params:{ id: userInfo.userid}
             })
             const url = await refreshAvatar()
             if(res.reqStatus === 200 && res.status === 100){
-                setInfo({
+                setUserInfo({
+                    ...userInfo,
                     ...res.user_info,
                     avatar_file_link: url,
                     // 目前没有以下返回结果，故暂时填上
@@ -110,7 +100,7 @@ export function UserPanel({show = true}){
         tryGetInfo()
         
 
-    },[loginStatus,userId])
+    },[loginStatus,userInfo.userid])
     // 用于呼出退出账号确认面板
     const [backDrop,setBackDrop] = useState(false)
     // 用于呼出密码修改面板
@@ -119,27 +109,11 @@ export function UserPanel({show = true}){
     if(loginStatus){
 
         return(
-            <Box sx={{width:'100%',height:windowSize - 50,display:(show && loginStatus) ? 'flex' : 'none',flexDirection:'row',
+            <Box sx={{width:'100%',height:'100%',display:(show && loginStatus) ? 'flex' : 'none',flexDirection:'row',
                 margin:'0 0',overflowX:'hidden'}}>
-                <Box sx={{height:'100%',minWidth:(windowSizeFlag) ? '20%' : '13%',maxWidth:(windowSizeFlag) ? '20%' : '13%',margin:'0 0'}}>
-                    <List>
-                        <ListItemButton onClick={() => setPwdPage(true)}>
-                            <ListItemText primary="修改密码"/>
-                            <ListItemIcon>
-                                <PasswordSharpIcon />
-                            </ListItemIcon>
-                        </ListItemButton>
-                        <ListItemButton onClick={() => setBackDrop(true)}>
-                            <ListItemText primary="退出账号" />
-                            <ListItemIcon>
-                                <LogoutSharpIcon />
-                            </ListItemIcon>
-                        </ListItemButton>
-                    </List>
-                </Box>
-                <Divider orientation='vertical'  flexItem/>
-                <Box sx={{height:'100%',minWidth:(windowSizeFlag) ? '80%' : '87%',margin:'0 0'}}>
-                    <UserInfoPage info={userInfo} setInfo={setInfo} avatarUpdate={refreshAvatar} ready={infoReady}/>
+                <Box sx={{height:'100%',minWidth:'100%',margin:'0 0'}}>
+                    <UserInfoPage avatarUpdate={refreshAvatar} ready={infoReady} userInfo={userInfo}
+                                  setUserInfo={setUserInfo} setPwdPage={setPwdPage} setLogoutPage={setBackDrop}/>
                     <LogoutPage flag={backDrop} handleClose={() => setBackDrop(false)} />
                     <PwdModifyPage info={userInfo} flag={pwdPage} handleClose={() => setPwdPage(false)}/>
                 </Box>
@@ -148,12 +122,12 @@ export function UserPanel({show = true}){
     }
     else {
         // return <></>
-        return ((show) ? <LoginHintPage setInfo={setInfo}/> : <></>)
+        return ((show) ? <LoginHintPage /> : <></>)
     }
    
 }
 
-export function LoginHintPage({setInfo}){
+export function LoginHintPage(){
     const [openDialog,setDialog] = useState(false)
 
     const handleClose = () => setDialog(false)
@@ -168,7 +142,7 @@ export function LoginHintPage({setInfo}){
                 <p className='main_hint_text'>如没有账号, 您可以先创建账号, 登录后您可以使用评论, 上传等功能</p>
                 <Button variant='text' size='medium' sx={{maxWidth:'50%'}} onClick={handleOpen}>登录账号</Button>
             </Stack>
-            <AccountOperatePage flag={openDialog} handleClose={handleClose} setUserInfo={setInfo}/>                
+            <AccountOperatePage flag={openDialog} handleClose={handleClose}/>                
         </>
     )
 }
@@ -177,18 +151,20 @@ export function LoginHintPage({setInfo}){
     setInfo --- 设置用户信息变量
     avatarUpdate --- 用于更新头像(下载文件并生成链接)的函数
     ready --- 用于指示数据是否准备好，false时组件内容全部显示为Skeleton
+    setPwdPage,setLogoutPage --- 用于打开账号操作界面
 */
-export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
+export function UserInfoPage({avatarUpdate,ready = false,setPwdPage,setLogoutPage,userInfo,setUserInfo}){
     // 用于左侧视频列表数据绑定
     const [resInfo,setResInfo] = useState([])
 
     // 用于控制编辑面板的扩展
+    const [expandFold,setExpandFold] = useState(false) // 用于展开更多账户操作选项
     const [openEditor,setEditorOpen] = useState(false)
     const setHint = useContext(PageHintContext)
     // 用于上传新个人信息
     const [inputData,setData] = useState({
-        username: info.username,
-        autograph: info.autograph
+        username: userInfo.username,
+        autograph: userInfo.autograph
     })
     // 用于同步信息
     const [allowEdit,setEdit] = useState(true)
@@ -196,10 +172,10 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
     // const [avatarSrc,setSrc] = useState(null)
     useEffect(() => {
         setData({
-            username: info.username,
-            autograph: info.autograph
+            username: userInfo.username,
+            autograph: userInfo.autograph
         })
-    },[info])
+    },[userInfo])
 
     const setInputData = (key) => (e) => {
         setData({
@@ -207,7 +183,8 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
             [key]: e.target.value
         })
     }
-    const [uid,setUID] = useContext(IDContext)
+    // const [uid,setUID] = useContext(IDContext)
+    // const [userInfo,setUserInfo] = useContext(UserInfoContext)
     const tryUpdateInfo = async () => {
         console.log(inputData)
         if(!openEditor){
@@ -218,12 +195,12 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
             setHint('warning','请完整填写所有信息')
             return
         }
-        else if(inputData.username === info.username && inputData.autograph === info.autograph){
+        else if(inputData.username === userInfo.username && inputData.autograph === userInfo.autograph){
             setEditorOpen(false)
             return
         }
 
-        if(inputData.username !== info.username){
+        if(inputData.username !== userInfo.username){
             const duplicate_check = await window.svrAPI.request({
                 url:`${window.svrAPI.url}/user/infocheck`,
                 method:'POST',
@@ -253,15 +230,15 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
             body: JSON.stringify({
                 username: inputData.username,
                 autograph: inputData.autograph,
-                userid: uid
+                userid: userInfo.userid
             })
         })
 
         if(res.reqStatus === 200){
             setHint('success','修改个人资料成功')
             // refreshInfo() 不需要更新信息，只需要将现有信息填入变量即可
-            setInfo({
-                ...info,
+            setUserInfo({
+                ...userInfo,
                 username: inputData.username,
                 autograph: inputData.autograph
             })
@@ -274,31 +251,29 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
     // 用于开启头像上传界面
     const [openUploader,setUploader] = useState(false)
 
-    const [windowSizeFlag,windowSize] = useContext(WindowSizeContext)
+    const [windowSize,setWindowSize] = useContext(WindowSizeContext)
 
     const avatarGetter = () => {
         if(!ready) return (<Skeleton variant='circular' height={70} width={70}/>)
 
-        if(info.avatar_file_link) return(<Avatar alt="avator" src={info.avatar_file_link} sx={{height:70,width:70}}/>)
-        else return(<Avatar sx={{bgcolor:'#427aa1',color:'white',height:70,width:70}}>{info.username.substring(0,2)}</Avatar>)
+        if(userInfo.avatar_file_link) return(<Avatar alt="avator" src={userInfo.avatar_file_link} sx={{height:70,width:70}}/>)
+        else return(<Avatar sx={{bgcolor:'#427aa1',color:'white',height:70,width:70}}>{userInfo.username.substring(0,2)}</Avatar>)
     } // 用于生成avatar的元素，有图片用图片，没图片用文字，信息没准备好就是Skeleton
 
     return(
         <Box sx={{width:'100%',height:'100%',overflowY:'scroll',overflowX:'hidden'}}>
             <Container sx={{minWidth:'100%',height:120,bgcolor:'#ebf2fa',display:'flex'}}>
                     <Stack sx={{justifyContent:'center',alignItems:'center'}} spacing={4} direction='row'>
-                        {/* {(info.avatar_file_link) ? <Avatar alt="avator" src={info.avatar_file_link} sx={{height:70,width:70}}/> : 
-                                        <Avatar sx={{bgcolor:'#427aa1',color:'white',height:70,width:70}}>{info.username.substring(0,2)}</Avatar>} */}
                         {avatarGetter()}
                         <Stack direction='column' spacing={0.2}>
-                            {(ready) ? <h2 className='user_title'>{info.username}</h2> : <Skeleton variant='text' height={30} width={60}/>}
-                            {(ready) ? <h5 className='user_id_title'>{'UID:'.concat(getUID(uid))}</h5> : <Skeleton variant='text' height={20} width={40}/>}
+                            {(ready) ? <h2 className='user_title'>{userInfo.username}</h2> : <Skeleton variant='text' height={30} width={60}/>}
+                            {(ready) ? <h5 className='user_id_title'>{'UID:'.concat(getUID(userInfo.userid))}</h5> : <Skeleton variant='text' height={20} width={40}/>}
                         </Stack>
                     </Stack>
             </Container>
             <Box sx={{minWidth:'100%',height:windowSize - 170,paddingLeft:2,paddingTop:2}}>
                 <Stack direction='row' spacing={1}>
-                    <Box sx={{width:(windowSizeFlag) ? '65%' : '67%',height:'100%',textAlign:'center'}}>
+                    <Box sx={{width:(windowSize.smallScreen) ? '65%' : '67%',height:'100%',textAlign:'center'}}>
                         {(resInfo.length === 0) ? <Typography variant='overline' gutterBottom>- 没有更多内容了 -</Typography>   
                                                : <></>}
                     </Box>
@@ -309,23 +284,23 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
                             <CardContent >
                                 {(ready) ? 
                                         <Stack direction='column' spacing={2} >
-                                            <Stack direction={(windowSizeFlag && openEditor) ? 'column' : 'row'} spacing={0.5} 
-                                                alignItems={(windowSizeFlag && openEditor) ? 'flex-start' : 'center'}>
+                                            <Stack direction={(windowSize.smallScreen && openEditor) ? 'column' : 'row'} spacing={0.5} 
+                                                alignItems={(windowSize.smallScreen && openEditor) ? 'flex-start' : 'center'}>
                                                 <p className='user_autograph_title' >用户名:</p>
                                                 {(openEditor) ? <TextField required value={inputData.username} disabled={!allowEdit}
                                                                         size='small' onChange={setInputData('username')}/> 
-                                                            : <p className='user_autograph'>{info.username}</p>}
+                                                            : <p className='user_autograph'>{userInfo.username}</p>}
                                             </Stack>
                                             <Stack direction='row' spacing={0.5} alignItems={'center'} sx={{maxHeight:300}}>
                                                 <p className='user_autograph_title' >用户UID:</p>
-                                                <p className='user_autograph'>{getUID(uid)}</p>
+                                                <p className='user_autograph'>{getUID(userInfo.userid)}</p>
                                             </Stack>
-                                            <Stack direction={(windowSizeFlag) ? 'column' : 'row'} spacing={0.5} 
-                                                alignItems={(windowSizeFlag || openEditor) ? 'flex-start' : 'center'} sx={{maxHeight:300}}>
-                                                <p className='user_autograph_title' style={{width:(windowSizeFlag) ? 70 : 'auto'}}>个性签名:</p>
+                                            <Stack direction={(windowSize.smallScreen) ? 'column' : 'row'} spacing={0.5} 
+                                                alignItems={(windowSize.smallScreen || openEditor) ? 'flex-start' : 'center'} sx={{maxHeight:300}}>
+                                                <p className='user_autograph_title' style={{width:(windowSize.smallScreen) ? 70 : 'auto'}}>个性签名:</p>
                                                 {(openEditor) ? <TextField required value={inputData.autograph} size='small' disabled={!allowEdit}
                                                                             multiline rows={4} onChange={setInputData('autograph')}/> 
-                                                            : <p className='user_autograph'>{info.autograph}</p>}
+                                                            : <p className='user_autograph'>{userInfo.autograph}</p>}
                                             </Stack>
                                         </Stack>
                                         :
@@ -339,11 +314,11 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
                                         <Stack direction='column' spacing={2} width={'100%'}>
                                             <Stack direction='row' spacing={0.5} alignItems={'center'}>
                                                 <p className='user_autograph_title' >注册时间:</p>
-                                                <p className='user_autograph'>{info.register_time.split(' ')[0]}</p>
+                                                <p className='user_autograph'>{userInfo.register_time.split(' ')[0]}</p>
                                             </Stack>
                                             <Stack direction='row' spacing={0.5} alignItems={'center'} sx={{maxHeight:300}}>
-                                                <p className='user_autograph_title' style={{width:(windowSizeFlag) ? 70 : 'auto'}}>上次登录:</p>
-                                                <p className='user_autograph'>{info.last_login_time}</p>
+                                                <p className='user_autograph_title' style={{width:(windowSize.smallScreen) ? 65 : 'auto'}}>上次登录:</p>
+                                                <p className='user_autograph'>{userInfo.last_login_time}</p>
                                             </Stack>
                                         </Stack>
                                         :
@@ -367,30 +342,53 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
                                         <CloseSharpIcon />
                                     </IconButton>
                                 </Tooltip> : <></>}
+                                <Tooltip title={(expandFold) ? '收起面板' : '更多操作'}>
+                                    <IconButton aria-label='more' onClick={() => setExpandFold(!expandFold)}>
+                                        <ExpandMoreSharpIcon sx={{transition:'all 0.3s ease-in-out',transform:(expandFold) ? 'rotate(180deg)' : ''}}/>
+                                    </IconButton>
+                                </Tooltip>
                             </CardActions>
+                            <Collapse in={expandFold} timeout={'auto'} unmountOnExit>
+                                <CardHeader title='账户操作' avatar={<ManageAccountsSharpIcon />}/>
+                                <Divider orientation={'horizontal'} flexItem/>
+                                    <List sx={{padding:0,margin:0}}>
+                                        <ListItemButton onClick={() => setPwdPage(true)}>
+                                            <ListItemText primary="修改密码"/>
+                                            <ListItemIcon>
+                                                <PasswordSharpIcon />
+                                            </ListItemIcon>
+                                        </ListItemButton>
+                                        <ListItemButton onClick={() => setLogoutPage(true)}>
+                                            <ListItemText primary="退出账号" />
+                                            <ListItemIcon>
+                                                <LogoutSharpIcon />
+                                            </ListItemIcon>
+                                        </ListItemButton>
+                                    </List>
+                            </Collapse>
                         </Card>
                         <Card sx={{width:'100%',cursor:'default'}}>
                             <CardHeader avatar={<EqualizerSharpIcon />} title='上传统计'/>
                             <CardContent >
                                 {(ready) ?
-                                        <Stack direction={(windowSizeFlag) ? 'column' : 'row'} spacing={(windowSizeFlag) ? 1 : 5}
+                                        <Stack direction={(windowSize.smallScreen) ? 'column' : 'row'} spacing={(windowSize.smallScreen) ? 1 : 5}
                                             sx={{alignItems:'center',justifyContent:'center'}}>
-                                            <Stack direction={(windowSizeFlag) ? 'row' : 'column'} 
-                                                className='data_box' spacing={(windowSizeFlag) ? 2 : 0.5}>
+                                            <Stack direction={(windowSize.smallScreen) ? 'row' : 'column'} 
+                                                className='data_box' spacing={(windowSize.smallScreen) ? 2 : 0.5}>
                                                 <h4>上传总数</h4>
-                                                <h2>{info.works}</h2>
+                                                <h2>{userInfo.works}</h2>
                                             </Stack>
-                                            {(windowSizeFlag) ? <></> : <Divider orientation='vertical' flexItem />}
-                                            <Stack direction={(windowSizeFlag) ? 'row' : 'column'}
-                                                className='data_box' spacing={(windowSizeFlag) ? 2 : 0.5}>
+                                            {(windowSize.smallScreen) ? <></> : <Divider orientation='vertical' flexItem />}
+                                            <Stack direction={(windowSize.smallScreen) ? 'row' : 'column'}
+                                                className='data_box' spacing={(windowSize.smallScreen) ? 2 : 0.5}>
                                                 <h4>点赞总数</h4>
-                                                <h2>{info.likes}</h2>
+                                                <h2>{userInfo.likes}</h2>
                                             </Stack>
-                                            {(windowSizeFlag) ? <></> : <Divider orientation='vertical' flexItem />}
-                                            <Stack direction={(windowSizeFlag) ? 'row' : 'column'}
-                                                className='data_box' spacing={(windowSizeFlag) ? 2 : 0.5}>
+                                            {(windowSize.smallScreen) ? <></> : <Divider orientation='vertical' flexItem />}
+                                            <Stack direction={(windowSize.smallScreen) ? 'row' : 'column'}
+                                                className='data_box' spacing={(windowSize.smallScreen) ? 2 : 0.5}>
                                                 <h4>评论总数</h4>
-                                                <h2>{info.comments}</h2>
+                                                <h2>{userInfo.comments}</h2>
                                             </Stack>
                                         </Stack>
                                         :
@@ -401,7 +399,7 @@ export function UserInfoPage({info,setInfo,avatarUpdate,ready = false}){
                     </Stack>
                 </Stack>
                 <AvatorUploadPage open={openUploader} setClose={() => setUploader(false)} 
-                                  info={info} setInfo={setInfo} avatarUpdate={avatarUpdate}/>
+                                  info={userInfo} setInfo={setUserInfo} avatarUpdate={avatarUpdate}/>
             </Box>
         </Box>
     )
@@ -434,7 +432,7 @@ export function AvatorUploadPage({open,setClose,setInfo,info,avatarUpdate}){
     }
 
     // 用于获取裁剪的图片
-    const [uid,setUID] = useContext(IDContext) //获取id
+    // const [uid,setUID] = useContext(IDContext) //获取id
     // const refreshInfo = useContext(RefreshContext) // 上传成功后使用这个函数刷新用户信息
     const editor = useRef(null)
     const [zoomValue,setZoomValue] = useState(1)
@@ -456,7 +454,7 @@ export function AvatorUploadPage({open,setClose,setInfo,info,avatarUpdate}){
             }
             const arrayBuffer = await data.arrayBuffer()
             // const buffer = new Uint8Array(arrayBuffer)
-            const url = window.svrAPI.url.concat(`/user/avator?userid=${uid}`)
+            const url = window.svrAPI.url.concat(`/user/avator?userid=${info.userid}`)
             console.log(url)
             const res = await window.svrAPI.upload(url,arrayBuffer)
             console.log(res)
@@ -494,11 +492,11 @@ export function AvatorUploadPage({open,setClose,setInfo,info,avatarUpdate}){
         sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })}
         open={open}
         >
-            <Card sx={{width:(windowFlag) ? '30%' : '20%',height:(windowFlag) ? '45%' : '35%'}}>
+            <Card sx={{width:(windowFlag.smallScreen) ? '30%' : '20%',height:(windowFlag.smallScreen) ? '45%' : '35%'}}>
                 <CardHeader avatar={<PortraitSharpIcon />} title='上传头像' 
                             action={<CloseIcon handleClose={handleClose} Icon={<CloseSharpIcon />}/>}/>
                 <CardContent >
-                    <Stack direction='column' spacing={(windowFlag) ? 1.5 : 2} alignItems='center'>
+                    <Stack direction='column' spacing={(windowFlag.smallScreen) ? 1.5 : 2} alignItems='center'>
                         <AvatarEditor image={actual_link} width={180} height={180} borderRadius={180}
                                       border={2} color={[0,0,0,0.7]} ref={editor} scale={zoomValue}/>
                         <Slider size='small' value={zoomValue} onChange={(event,value) => setZoomValue(value)}

@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld('fileAPI',{
 
 contextBridge.exposeInMainWorld('windowAPI', {
   setMsg: (msg) => ipcRenderer.send('window-api', msg),
-  getWindowHeight: (callback) => ipcRenderer.once('window-height',(_event,value) => callback(value))
+  getWindowHeight: (callback) => ipcRenderer.once('window-height',(_event,value) => callback(value)),
+  getWindowSize: (callback) => ipcRenderer.once('window-size',(_,size) => callback(size))
 })
 
 contextBridge.exposeInMainWorld('svrAPI',{

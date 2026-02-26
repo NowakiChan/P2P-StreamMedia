@@ -1,10 +1,9 @@
 import './home.css';
 import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
-import Container from '@mui/material/Container';
 import Stack from '@mui/material/Stack';
-import { WindowNavigate, MenuNavigate, NavigateLogo } from './windowNavigate';
-import { LoginHintPage, UserPanel } from './userPage/userPage';
+import { WindowNavigate, MenuNavigate } from './windowNavigate';
+import { UserPanel } from './userPage/userPage';
+import { UploadPage } from './uploadPage/upload';
 import { createContext, useEffect, useState } from 'react';
 import { PageAlert } from './userPage/backDropPage';
 import { DisconnectErrorPage } from './errorPage';
@@ -19,16 +18,29 @@ import { DisconnectErrorPage } from './errorPage';
 export const PageIndexContext = createContext(null)
 export const LoginStatusContext = createContext(null)
 export const WindowSizeContext = createContext(null)
-export const IDContext = createContext(null)
 export const PageHintContext = createContext(null)
+export const UserInfoContext = createContext(null)
 
 function HomePage(){
-    const [fullscreenflag,setFullScreenFlag] = useState(true)
-    const [mainAreaHeight,setMainAreaHeight] = useState(800)
+    // 用于设置窗口数据
+    const [mainAreaSize,setMainAreaSize] = useState({smallScreen:true,width:1000,height:800})
+
     const [isLogin,setLoginStatus] = useState(false) //后续需要从本地读取
     const [isConnect,setConnectStatus] = useState(true) // 验证与服务器的连接状况
-    const [userID,setUserId] = useState(null) // 记录用户id，而不是直接用浏览器存储
     const [mainAreaIndex,setMainAreaIndex] = useState('browser')
+    const [userInfo,setUserInfo] = useState({
+        avatar_link : null,
+        userid : 0,
+        username : 'Unknown',
+        autograph : '',
+        last_login_time : '1990-01-01 00:00:00',
+        register_time : '1990-01-01 00:00:00',
+        works : 0,
+        likes : 0,
+        comments : 0,
+        avatar_file_link : null
+    })
+    
 
 
     // 用于页面提示(右下角)的开关和信息设置
@@ -52,7 +64,11 @@ function HomePage(){
             window.svrAPI.tokenVerify((data) => {
                 if(data.reqStatus === 200 && data.status === 100){
                     setLoginStatus(true)
-                    setUserId(data.uid)
+                    // setUserId(data.uid)
+                    setUserInfo({
+                        ...userInfo,
+                        userid: data.uid
+                    })
                 }
             })
         }
@@ -60,31 +76,33 @@ function HomePage(){
 
     return(
         <>
-            <Box sx={{width:'100%',padding:'0 0',margin:'0 0',
-                      height:'100%',display:'flex',flexDirection:'column'}} >
-                <Box  sx={{bgcolor:'#1976d2',height:50,display:'flex',justifyContent:'flex-start',alignItems:'center',paddingLeft:2,paddingRight:2}} 
-                        className='main'>
-                    {/* <h1>top navigate</h1> */}
-                    <NavigateLogo />
-                    <MenuNavigate setIndex={setMainAreaIndex}/>
-                    <WindowNavigate flag={fullscreenflag} setFlag={setFullScreenFlag} sendSizeChange={setMainAreaHeight}/>
+            <Box sx={{width:mainAreaSize.width,padding:'0 0',margin:'0 0',height:mainAreaSize.height,
+                      display:'flex',flexDirection:'column'}} >
+                
+                <Box className='main' sx={{width:'100%',bgcolor:'#ebf2fa',height:30,display:'flex',
+                                       flexDirection:'row',alignItems:'center',borderBottom:'1px solid white'}}>
+                    {/* 用于顶端的窗口导航栏 */}
+                    <WindowNavigate windowSize={mainAreaSize} sendSizeChange={setMainAreaSize}/>
                 </Box>
-                <Box sx={{height:mainAreaHeight - 50,width:'100%',margin:'0 0',padding:'0 0',overflowX:'hidden'}}>
-                    {/* <h2>main display area</h2> */}
+                <Stack direction={'row'} spacing={0} width={'100%'} height={'100%'} sx={{overflowX:'hidden'}}>
+                    <Stack direction={'column'} alignItems={'center'} spacing={1} sx={{bgcolor:'#ebf2fa',borderRight:'1px solid white'}}>
+                        {/* 左侧竖向导航栏部分 */}
+                        <MenuNavigate setIndex={setMainAreaIndex}/>
+                    </Stack>
                     <PageIndexContext value={setMainAreaIndex}>
                         <LoginStatusContext value={[isLogin,setLoginStatus]}>
-                            <WindowSizeContext value={[fullscreenflag,mainAreaHeight]}>
-                                <IDContext value={[userID,setUserId]}>
-                                    <PageHintContext value={setNewMainPageHint}>
-                                        <PageAlert type={pageHint.type} info={pageHint.text} 
-                                                   open={pageHint.status} location={{v:'bottom',h:'right'}}/>
-                                        <MainPage select={mainAreaIndex} isLogin={isLogin} isConnect={isConnect}/>
-                                    </PageHintContext>
-                                </IDContext>
+                            <WindowSizeContext value={[mainAreaSize,setMainAreaSize]}>
+                                <UserInfoContext value={[userInfo,setUserInfo]}>
+                                <PageHintContext value={setNewMainPageHint}>
+                                    <PageAlert type={pageHint.type} info={pageHint.text} 
+                                            open={pageHint.status} location={{v:'bottom',h:'right'}}/>
+                                    <MainPage select={mainAreaIndex} isLogin={isLogin} isConnect={isConnect}/>
+                                </PageHintContext>
+                                </UserInfoContext>
                             </WindowSizeContext>
                         </LoginStatusContext>
                     </PageIndexContext>
-                </Box>
+                </Stack>
             </Box>
         </>
     )
@@ -116,22 +134,11 @@ export function MainPage({select = '',isLogin = false,isConnect = false}){
         return(
             <>
                 <h1 style={{display:(pageIndex.browser) ? 'block' : 'none'}}>Browser</h1>
-                <h1 style={{display:(pageIndex.upload) ? 'block' : 'none'}}>Upload</h1>
+                <UploadPage show={pageIndex.upload}/>
                 <UserPanel show={pageIndex.account}/>
                 <h1 style={{display:(pageIndex.setting) ? 'block' : 'none'}}>Setting</h1>
             </>
         )
-    }
-
-    switch(select) {
-        case 'browser' :
-            return <h1>browser</h1>
-        case 'upload' :
-            return <h1>upload</h1>
-        case 'setting' :
-            return <h1>setting</h1>
-        default :
-            return <h1>Unknown</h1>
     }
 }
 

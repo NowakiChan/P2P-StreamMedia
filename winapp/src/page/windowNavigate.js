@@ -16,22 +16,32 @@ import { useState } from 'react';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
-export function WindowNavigate({flag,setFlag,sendSizeChange}){
+export function WindowNavigate({windowSize,sendSizeChange}){
     const fullScreen = () => {
-        setFlag(false)
+        const changeHandler = (value) => {
+            sendSizeChange({
+                ...value,
+                smallScreen: false
+            })
+        }
         window.windowAPI.setMsg('fullscreen')
-        window.windowAPI.getWindowHeight(sendSizeChange)
+        window.windowAPI.getWindowSize(changeHandler)
     }
     const normalScreen = () => {
-        setFlag(true)
+        const changeHandler = (value) => {
+            sendSizeChange({
+                ...value,
+                smallScreen: true
+            })
+        }
         window.windowAPI.setMsg('normalsize')
-        window.windowAPI.getWindowHeight(sendSizeChange)
+        window.windowAPI.getWindowSize(changeHandler)
     }
 
     return(
-        <Stack direction='row' spacing={1.5} className='main' sx={{position:'absolute',right:0,paddingRight:2}}>
+        <Stack direction='row' spacing={1.5} className='main' sx={{position:'absolute',right:0,paddingRight:1}}>
             <RemoveSharpIcon className='item_hover' onClick={() => window.windowAPI.setMsg('mininum')}/>
-            {(flag) ? <FullscreenSharpIcon className='item_hover' onClick={fullScreen}/>
+            {(windowSize.smallScreen) ? <FullscreenSharpIcon className='item_hover' onClick={fullScreen}/>
                           : <FullscreenExitSharpIcon className='item_hover' onClick={normalScreen}/>}
             <CloseSharpIcon className='item_hover' onClick={() => window.windowAPI.setMsg('close')}/>
         </Stack>
@@ -44,11 +54,11 @@ export function MenuNavigate({setIndex}){
 
     return(
         <Tabs value={index} onChange={(event,newIndex) => setPageIndex(newIndex)} 
-            className='sub' textColor='white' indicatorColor='white'>
-            <Tab icon={<StorageSharpIcon />} label='资源' iconPosition='start' onClick={() => setIndex('browser')} sx={{color:'white'}}/>
-            <Tab icon={<FileUploadSharpIcon />} label='上传' iconPosition='start' onClick={() => setIndex('upload')} sx={{color:'white'}}/>
-            <Tab icon={<AccountCircleSharpIcon />} label='个人' iconPosition='start' onClick={() => setIndex('account')} sx={{color:'white'}}/>
-            <Tab icon={<SettingsSharpIcon />} label='设置' iconPosition='start' onClick={() => setIndex('setting')} sx={{color:'white'}}/>
+            className='sub' orientation={'vertical'} indicatorColor={'primary'}>
+            <Tab icon={<StorageSharpIcon />} label='资源' iconPosition='top' onClick={() => setIndex('browser')} />
+            <Tab icon={<FileUploadSharpIcon />} label='上传' iconPosition='top' onClick={() => setIndex('upload')} />
+            <Tab icon={<AccountCircleSharpIcon />} label='个人' iconPosition='top' onClick={() => setIndex('account')} />
+            <Tab icon={<SettingsSharpIcon />} label='设置' iconPosition='top' onClick={() => setIndex('setting')} />
         </Tabs>
     )
 }

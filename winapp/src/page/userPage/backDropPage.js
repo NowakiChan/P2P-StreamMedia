@@ -17,7 +17,7 @@ import Checkbox from "@mui/material/Checkbox";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import { useContext, useEffect, useState } from "react";
-import { LoginStatusContext, WindowSizeContext, IDContext } from "../home";
+import { LoginStatusContext, WindowSizeContext, UserInfoContext } from "../home";
 import { LoginHintPage } from "./userPage";
 import './user.css'
 import Card from "@mui/material/Card";
@@ -31,12 +31,17 @@ import { accountLogin, getSHA256,verifyPwdFormat } from "../function";
 
 export function LogoutPage({flag,handleClose}){
     // const refresh = useContext(RefreshContext)
-    const [windowSizeFlag,windowSize] = useContext(WindowSizeContext)
+    const [windowSize,setWindowSize] = useContext(WindowSizeContext)
     const [loginFlag,setFlag] = useContext(LoginStatusContext)
-    const [uid,setUID] = useContext(IDContext)
+    // const [uid,setUID] = useContext(IDContext)
+    const [userInfo,setUserInfo] = useContext(UserInfoContext)
     const logOutHandler = () => {
         setFlag(false)
-        setUID(0)
+        // setUID(0)
+        setUserInfo({
+            ...userInfo,
+            userid: 0
+        })
         window.fileAPI.saveSetting({
             token: null,
             tokenUID: null
@@ -91,12 +96,16 @@ export function LogoutPage({flag,handleClose}){
         console.log("Switch Account -> ",res)
         if(res.reqStatus === 200){
             if(res.status === 100){
-                if(res.userid === uid){
+                if(res.userid === userInfo.userid){
                     handleClose()
                     return // 如果登录的是相同账号，不做处理
                 }
 
-                setUID(res.userid)
+                // setUID(res.userid)
+                setUserInfo({
+                    ...userInfo,
+                    userid: res.userid
+                })
         
                 // 存储token
                 let settings = {
@@ -162,7 +171,7 @@ export function LogoutPage({flag,handleClose}){
         sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })}
         open={flag}
         >
-            <Card sx={{width:(windowSizeFlag) ? '30%' : '15%'}}>
+            <Card sx={{width:(windowSize.smallScreen) ? '30%' : '15%'}}>
                 <CardHeader avatar={<LogoutSharpIcon />} title={(nextPage) ? '切换账号' : '退出账号'} 
                             action={<CloseIcon handleClose={handleClose} Icon={<CloseSharpIcon />}/>}/>
                 <CardContent>
@@ -228,7 +237,8 @@ export function LoginAndRegisterPage({select,alertHandle,open}){
     // 用于设置保持登录状态
     // const [keepLoginFlag,setKeepLoginFlag] = useState(true)
     const [isLogin,setLoginStatus] = useContext(LoginStatusContext)
-    const [userID,setID] = useContext(IDContext)
+    // const [userID,setID] = useContext(IDContext)
+    const [userInfo,setUserInfo] = useContext(UserInfoContext)
     
     // 用于记录各项输入值
     const [loginInput,setLoginInput] = useState({
@@ -301,7 +311,11 @@ export function LoginAndRegisterPage({select,alertHandle,open}){
             alertHandle('success','登陆成功')
             // 更改登陆状态并存储用户id
             setLoginStatus(true)
-            setID(res.userid)
+            // setID(res.userid)
+            setUserInfo({
+                ...userInfo,
+                userid: res.userid
+            })
             if(res.token){
                 // 存储token
                 const settings = {
@@ -541,7 +555,7 @@ export function PwdModifyPage({info,flag,handleClose}){
                 body : JSON.stringify({
                     oldPwd: pwd_sha256,
                     newPwd: new_sha256,
-                    userid: uid
+                    userid: userInfo.userid
                 })
             })
 
@@ -560,8 +574,9 @@ export function PwdModifyPage({info,flag,handleClose}){
    
 
     // 用于读取头像
-    const [avatarSrc,setSrc] = useState(null)
-    const [uid,setUID] = useContext(IDContext)
+    // const [avatarSrc,setSrc] = useState(null)
+    // const [uid,setUID] = useContext(IDContext)
+    const [userInfo,setUserInfo] = useContext(UserInfoContext)
 
     return(
         <Backdrop open={flag} sx={(theme) => ({zIndex: theme.zIndex.drawer + 1 })}>
