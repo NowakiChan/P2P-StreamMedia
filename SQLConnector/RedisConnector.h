@@ -15,90 +15,120 @@ class RedisConnector{
 private:
     redis::Redis conn;
 
-    int GetCcommandType(const std::string& comm) const{
-        std::cout<<comm<<"\n";
-        if(comm == "DEL" || comm == "DUMP" || comm == "EXISTS" ||
-           comm == "EXPIRE" || comm == "KEYS" || comm == "PERSIST" ||
-           comm == "PTTL" || comm == "TTL" || comm == "RENAME" ||
-           comm == "TYPE" || comm == "SET" || comm == "GET" || comm == "GETRANGE" ||
-           comm == "GETSET" || comm == "GETBIT" || comm == "SETBIT" ||
-           comm == "STRLEN" || comm == "MSET" || comm == "INCR" ||
-           comm == "INCRBY" || comm == "DECR" || comm == "DECRBY" ||
-           comm == "APPEND")
-            return 1;
-        else if(comm == "HDEL" || comm == "HEXISTS" || comm == "HGET" ||
-                comm == "HGETALL" || comm == "HINCRBY" || comm == "HKEYS" ||
-                comm == "HLEN" || comm == "HSET" || comm == "HVALS")
-            return 2;
-        else if(comm == "BLPOP" || comm == "BRPOP" || comm == "BRPOPLPUSH" ||
-                comm == "LINDEX" || comm == "LINSERT" || comm == "LLEN" ||
-                comm == "LPOP" || comm == "LPUSH" || comm == "LRANGE" ||
-                comm == "LERM" || comm == "LSET" || comm == "LTRIM" ||
-                comm == "RPOPLPUSH" || comm == "RPUSH")
-            return 3;
-        else if(comm == "SADD" || comm == "SCARD" || comm == "SDIFF" ||
-                comm == "SINTER" || comm == "SISMEMBER" || comm == "SMEMBERS" ||
-                comm == "SMOVE" || comm == "SPOP" || comm == "SRANDMEMBER" ||
-                comm == "SREM" || comm == "SUNION" || comm == "SSCAN")
-            return 4;
-        else if(comm == "ZADD" || comm == "ZCARD" || comm == "ZCOUNT" ||
-                comm == "ZINCRBY" || comm == "ZINTERSTORE" || comm == "ZLEXCOUNT" ||
-                comm == "ZRANGE" || comm == "ZRANGEBYSCORE" || comm == "ZRANGEBYLEX" ||
-                comm == "ZRANK" || comm == "ZREM" || comm == "ZREVRANGE" || comm == "ZREVRANGEBYSCORE" ||
-                comm == "ZREVRANK" || comm == "ZSCORE" || comm == "ZUNIONSTORE")
-            return 5;
-        
-        return -1;
+public:
+    template<typename M,typename W,typename... Args>
+    void ZAdd(const char* key,M&& member,W&& weight,Args&&... args){
+        conn.zadd(key,member,weight);
+        ZAdd(key,args...);
     }
 
-    template<typename...Args>
-    Json::Value Key(const std::string&,Args&&...);
-    template<typename...Args>
-    Json::Value Hmap(const std::string&,Args&&...) { return Json::nullValue; }
-    template<typename...Args>
-    Json::Value List(const std::string&,Args&&...) { return Json::nullValue; }
-    template<typename...Args>
-    Json::Value Set(const std::string&,Args&&...) { return Json::nullValue; }
-    template<typename...Args>
-    Json::Value SortedSet(const std::string&,Args&&...) { return Json::nullValue; }
+    template<typename M,typename W>
+    void ZAdd(const char* key,M&& member,W&& weight){
+        conn.zadd(key,member,weight);
+    }
+
+    template<typename F,typename V,typename... Args>
+    void HSet(const char* key,F&& field,V&& value,Args&&... args){
+        conn.hset(key,field,value);
+        HSet(key,args...);
+    }
+
+    template<typename F,typename V>
+    void HSet(const char* key,F&& field,V&& value){
+        conn.hset(key,field,value);
+    }
+
+    template<typename M,typename... Args>
+    void SRem(const std::string key,M&& member,Args&&...args){
+        conn.srem(key,member);
+        SRem(key,args...);
+    }
+
+    template<typename M>
+    void SRem(const std::string key,M&& member){
+        conn.srem(key,member);
+    }
 public:
     RedisConnector(const DBConnectionConfig& config)
                   : conn(redis::Redis("tcp://localhost:" + std::to_string(config.port)))
     {}
 
-    template<typename...Args>
-    Json::Value Execute(const std::string& pre_comm,Args&&...args){
-        std::string comm(pre_comm);
-        std::transform(pre_comm.begin(),pre_comm.end(),comm.begin(),::toupper);
-        switch(GetCcommandType(comm)){
-            case 1:
-                return Key(comm,args...);
-            case 2:
-                return Hmap(comm,args...);
-            case 3:
-                return List(comm,args...);
-            case 4:
-                return Set(comm,args...);
-            case 5:
-                return SortedSet(comm,args...);
-            default:
-                return Json::nullValue;
+    std::string Get(const char* key){
+        auto res = conn.get(key);
+        if(res) return *res;
+
+        return std::string("");
+    }
+
+    void Set(const char* key,const char* value){
+        conn.set(key,value); // 返回bool型，往后考虑作为操作成功与否的标志
+    }
+
+    // template<typename T,typename... Args>
+    // void HSet(T&& key,Args&&... args){
+    //     conn.hset(key,args...); // 返回1表示成功设立新哈希，0表示覆写了旧哈希
+    // }
+
+    Json::Value HGet(const char* key){
+        Json::Value res = Json::nullValue;
+        std::unordered_map<std::string,std::string> redis_output;
+        conn.hgetall(key,std::inserter(redis_output,redis_output.begin()));
+        for(auto& it: redis_output){
+            res[it.first] = it.second;
         }
+
+        return res;
+    }
+
+    // 用于对哈希表内的浮点数进行操作
+    void HIncre(const char* key,const char* field,const double increment){
+        conn.hincrbyfloat(key,field,increment);
+    }
+
+
+    void ZIncre(const char* key,const char* member,const double increment){
+        conn.zincrby(key,increment,member);
+    }
+
+    Json::Value ZSort(const char* key,bool ascending = true){
+        Json::Value res = Json::arrayValue;
+        std::unordered_map<std::string,double> redis_output;
+        if(ascending){
+            conn.zrange(key,0,-1,std::inserter(redis_output,redis_output.begin()));
+        }
+        else{
+            conn.zrevrange(key,0,-1,std::inserter(redis_output,redis_output.begin()));
+        }
+ 
+        // append每个元素值
+        for(auto& it : redis_output){
+            Json::Value v;
+            v["id"] = it.first;
+            v["weight"] = it.second;
+            res.append(v);
+        }
+        return res;
+    }
+
+    void ZRemove(const char* key,const char* member){
+        conn.zrem(key,member);
+    }
+
+    bool Del(const char* key){
+        return conn.del(key);
+    }
+
+    void SAdd(const std::string key,const std::string member){
+        conn.sadd(key,member);
+    }
+
+    std::unordered_set<std::string> SMembers(const std::string key){
+        std::unordered_set<std::string> result;
+        conn.smembers(key,std::inserter(result,result.begin()));
+
+        return result;
     }
 };
-
-template<typename...Args>
-Json::Value RedisConnector::Key(const std::string& comm,Args&&...args){
-    Json::Value res;
-    if(comm == "SET")
-        conn.command<void>(comm,args...);
-    else if(comm == "GET"){
-        auto db_value = conn.command<redis::OptionalString>(comm,args...);
-        res["result"] = *db_value;
-    }
-
-    return res;
-}
 
 
 

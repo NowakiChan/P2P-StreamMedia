@@ -9,4 +9,7 @@
 #define DATA_NOT_FOUND 106
 #define JSON_HTML_TYPE "application/json"
 
+// WebSocket状态代码
+#define NO_SUCH_PEER 201
+
 #endif

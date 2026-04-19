@@ -2,6 +2,7 @@
 #define P2P_SERVER
 #include"../SQLConnector/ThreadPool.h"
 #include"../SQLConnector/RedisConnector.h"
+#include"./WebSocket.h"
 #include<httplib.h>
 class ServerConfig{
 private:
@@ -9,6 +10,7 @@ private:
     void LoadServerConfig(const Json::Value& config){
         if(config.isMember("address")) address = config["address"].asString();
         if(config.isMember("port")) port = config["port"].asUInt();
+        if(config.isMember("socket")) socket_port = config["socket"].asUInt();
         if(config.isMember("file_size_limit")) upload_size_limit = config["file_size_limit"].asUInt();
         if(config.isMember("file_path")){
             if(config["file_path"].isMember("user_file"))
@@ -23,7 +25,7 @@ public:
     ServerConfig() : port(80) , address("localhost") , user_file_storage_path(".") 
                    , tmp_file_storage_path(".") , log_file_storage_path(".")
     {}
-    ServerConfig(const std::string& file) : port(80) , address("localhost")
+    ServerConfig(const std::string& file) : port(80) , socket_port(6001) , address("localhost")
                                           , user_file_storage_path(".") 
                                           , tmp_file_storage_path(".") 
                                           , log_file_storage_path(".")
@@ -40,6 +42,7 @@ public:
     std::string tmp_file_storage_path;
     std::string log_file_storage_path;
     unsigned int port;
+    unsigned int socket_port;
     unsigned int upload_size_limit = 10 * 1024 * 1024;
 };
 
@@ -64,20 +67,24 @@ private:
     ThreadPool<RedisConnector> redis_conn_pool;
     unsigned int port;
     bool running_flag;
+    WebSocketSvr socket_svr;
     ServerConfig svr_config;
+    std::thread socket_server_thread; // websocket线程
+
 public:
-    P2PServer(const ServerConfig& config) : svr_config(config) , port(config.port) ,
+    P2PServer(const ServerConfig& config) : svr_config(config) , port(config.port) , socket_svr(config.socket_port) ,
                                             mysql_conn_pool(ThreadPool<Connector>(config.mysql_config)) ,
                                             redis_conn_pool(ThreadPool<RedisConnector>(config.redis_config))
     {
         server_core.set_payload_max_length(config.upload_size_limit);
+        socket_svr.SetConnectionPool(GetRedisPool());
     }
 
     P2PServer(const DBConnectionConfig& mysql_config,const DBConnectionConfig& redis_config,
-              const unsigned int running_port = 80)
+              const unsigned int running_port = 80,const unsigned int socket_port = 6001)
              : mysql_conn_pool(ThreadPool<Connector>(mysql_config)) ,
                redis_conn_pool(ThreadPool<RedisConnector>(redis_config)) ,
-               port(running_port) , running_flag(false)
+               port(running_port) , running_flag(false) , socket_svr(socket_port)
     {}
 
     template<typename T>
@@ -93,6 +100,8 @@ public:
 
     void Start(){
         running_flag = true;
+        socket_server_thread = std::thread([this](){ socket_svr.Run(); }); // 启动websocket
+        std::cout<<"websocket server running at -> "<<svr_config.address<<":"<<svr_config.socket_port<<"\n";
         std::cout<<"server running at -> "<<svr_config.address<<":"<<svr_config.port<<"\n";
         server_core.listen(svr_config.address,svr_config.port);
     }
@@ -100,6 +109,12 @@ public:
     void Stop(){
         running_flag = false;
         server_core.stop();
+        socket_svr.Stop();
+
+        if(socket_server_thread.joinable())
+            socket_server_thread.join();
+
+        std::cout<<"server core now shutdown...\n";
         mysql_conn_pool.ClosePool();
         redis_conn_pool.ClosePool();
     }

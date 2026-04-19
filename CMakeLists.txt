@@ -21,6 +21,7 @@ endif()
 
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Boost REQUIRED)
 
 find_path(MYSQL_DIR
     mysql/mysql.h
@@ -55,6 +56,8 @@ find_path(HTTPLIB_DIR httplib.h)
 
 find_path(JWTCPP_DIR jwt-cpp/jwt.h)
 
+find_path(WEBSOCKET_DIR websocketpp/config/asio_no_tls.hpp)
+
 
 file(GLOB SRC_FILES
     "${PROJECT_SOURCE_DIR}/*/*.h"
@@ -71,6 +74,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${REDIS_PLUS_PLUS_DIR}
     ${HTTPLIB_DIR}
     ${JWTCPP_DIR}
+    ${WEBSOCKET_DIR}
+    ${Boost_INCLUDE_DIRS}
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${MYSQL_CLIENT_LIB})
