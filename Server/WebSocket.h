@@ -166,6 +166,7 @@ void WebSocketSvr::Signal(const Json::Value msg,const std::string from_client){
     if(msg.isMember("to")){
         if(conn_list.find(msg["to"].asString()) != conn_list.end()){
             transfer_msg["from"] = from_client;
+	    transfer_msg["type"] = "offer";
             svr_core.send(conn_list[msg["to"].asString()],transfer_msg.toStyledString(),
                           websocketpp::frame::opcode::text);
             res["status"] = OK;

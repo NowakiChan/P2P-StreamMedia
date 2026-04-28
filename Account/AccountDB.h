@@ -79,6 +79,11 @@ public:
                                     " WHERE userid=" + userid;
         return conn_pool->GetConnection()->Execute(sql_str.c_str());
     }
+
+    Json::Value GetAvatarLink(const std::string id){
+        const std::string query = "SELECT userid,avator_link FROM media_user WHERE userid=" + id;
+	return conn_pool->GetConnection()->Query(query.c_str());
+    }
 };
 
 #endif

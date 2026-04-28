@@ -52,7 +52,7 @@ public:
         const uint64_t timestamp = new_id >> 32;
         db_interface.SetRIDCache(std::to_string(new_id),std::to_string(timestamp));
         res["status"] = OK;
-        res["rid"] = new_id;
+        res["rid"] = std::to_string(new_id);
         res["svr_time"] = timestamp;
 
         return res.toStyledString();
@@ -60,20 +60,22 @@ public:
 
     std::string NewResource(const std::string data){
         Json::Value resource = GetJsonFromStr(data),res;
+	std::cout<<"recieve new resource ->\n"<<data<<std::endl;
         if(resource.isMember("rid") && resource.isMember("name") && resource.isMember("description") &&
-           resource.isMember("uid") && resource.isMember("length") && resource.isMember("resolution") &&
+           resource.isMember("uid") && resource.isMember("duration") && resource.isMember("resolution") &&
            resource.isMember("time")){
-            const std::string pid_time = db_interface.GetRIDCache(resource["pid"].asString());
+            const std::string pid_time = db_interface.GetRIDCache(resource["rid"].asString());
+	    std::cout<<"svr timestamp -> "<<pid_time<<"\nrid is "<<resource["rid"].asString();
             if(pid_time.size() > 0 && pid_time == resource["time"].asString()){
-                db_interface.AddNewResource(resource["pid"].asString(),resource["name"].asString(),resource["uid"].asString(),
-                                            resource["length"].asString(),resource["resolution"].asString(),resource["description"].asString());
+                db_interface.AddNewResource(resource["rid"].asString(),resource["name"].asString(),resource["uid"].asString(),
+                                            resource["duration"].asString(),resource["resolution"].asString(),resource["description"].asString());
                 db_interface.DelCache(resource["rid"].asString()); // 写入mysql后删除redis中的缓存
                 res["status"] = OK;
             }
             else res["status"] = DATA_NOT_FOUND;
         }
         else res["status"] = DATA_FORMAT_ERR;
-        
+        std::cout<<res["status"].asString()<<"\n"; 
         return res.toStyledString();
     }
     
@@ -154,6 +156,7 @@ public:
         else{
             res["status"] = INVAILD_PARAM;
         }
+	std::cout<<res.toStyledString()<<std::endl;
 
         return res.toStyledString();
     }

@@ -49,6 +49,7 @@ public:
         });
 
         server->Post("/user/avator",[&](const httplib::Request& req, httplib::Response& res){        
+	    std::cout<<"UploadAvator File Size -> "<<req.get_header_value("Content-Length")<<"\n";
             UploadAvator(req,res);
         });
 
@@ -194,6 +195,9 @@ public:
         //     return;
         // }
         // auto file = req.get_file_value("avator_file");
+	{
+	    std::cout<<"Uploader Rrecieve File Length -> "<<req.get_header_value("Content-Length")<<"\n";
+	}
         if(!req.has_param("userid")){
             result["status"] = INVAILD_PARAM;
             res.set_content(result.toStyledString(),JSON_HTML_TYPE);
@@ -260,6 +264,7 @@ public:
     void FetchAvator(const httplib::Request& req,httplib::Response& res){
         auto userid = req.get_param_value("userid");
         auto SendFileData = [&](const std::string& path,httplib::Response& r){
+            std::cout<<"try open file -> "<<path<<"\n";
             std::ifstream fin(path,std::ios::in | std::ios::binary);
             std::string type = path.substr(path.find_last_of('.') + 1);
             if(type == "jpg") type = "jpeg";
@@ -271,17 +276,18 @@ public:
 
                 res.set_content(stream.str(),"image/" + type);
             }
-            else res.set_content("","text/plain");
+            else res.set_content("can't fetch avatar file","text/plain");
         };
         if(userid.size() > 0){
-            Json::Value db_res = db_interface.SelectUserById(userid);
+            Json::Value db_res = db_interface.GetAvatarLink(userid);
             if(db_res["data"] != Json::nullValue){
+		std::cout<<db_res["data"][0].toStyledString()<<"\n";
                 SendFileData(db_res["data"][0]["avator_link"].asString(),res);
                 return;
             }
         }
     
-        res.set_content("","text/plain");
+        res.set_content("wrong paras","text/plain");
     }
 };
 
@@ -298,7 +304,7 @@ Json::Value AccountPlugin::GetToken(std::string user_identity){
 
 int AccountPlugin::SetPassword(const Json::Value& info){
     if(db_interface.SelectUserByPwd(info["userid"].asString(),info["oldPwd"].asString())["data"] != Json::nullValue){
-        Json::Value execute_res = db_interface.UpdateInfo("","","",info["newPwd"].asString(),true);
+        Json::Value execute_res = db_interface.UpdateInfo(info["userid"].asString(),"","",info["newPwd"].asString(),true);
         return (execute_res["errorid"].asInt() == 0 && execute_res["change_rows"].asInt() > 0);
     }
 

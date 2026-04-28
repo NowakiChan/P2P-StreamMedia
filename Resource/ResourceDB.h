@@ -17,7 +17,7 @@ public:
     {
         const std::string sql = "INSERT INTO media_resource(rid,resource_name,upload_user,video_length,resolution,upload_time,resource_description)",
                           value_set = " VALUES(" + GetSqlStr(rid) + "," + GetSqlStr(name) + "," + GetSqlStr(uid) + "," + GetSqlStr(video_length) +
-                                      "," + GetSqlStr(resolution) + ",NOW()," + GetSqlStr(description);
+                                      "," + GetSqlStr(resolution) + ",NOW()," + GetSqlStr(description) + ')';
         const std::string query = sql + value_set;
         return mysql_pool->GetConnection()->Execute(query.c_str());
     }
@@ -37,11 +37,14 @@ public:
     Json::Value SelectResource(){
         const std::string sql = "SELECT rid,resource_name,resource_description,upload_time,upload_user,likes,video_length,resolution,username FROM media_resource,media_user ",
                           condition = " WHERE media_resource.upload_user = media_user.userid AND available != -1";
-        return mysql_pool->GetConnection()->Query(sql.c_str());
+	const std::string query = sql + condition;
+        return mysql_pool->GetConnection()->Query(query.c_str());
     }
 
     void SetRIDCache(const std::string rid,const std::string timestamp){
+	std::cout<<"set "<<rid<<" to "<<timestamp<<"\n";
         redis_pool->GetConnection()->Set(rid.c_str(),timestamp.c_str());
+	std::cout<<GetRIDCache(rid)<<"\n";
     }
 
     std::string GetRIDCache(const std::string rid){

@@ -104,9 +104,9 @@ private:
         if(param == NULL){
             v = Json::nullValue;
         }
-        else if(IsDigitStr(param)){
+        /*else if(IsDigitStr(param)){
             v = std::atoi(param);
-        }
+        }*/
         else if(param == "true" || param == "false"){
             v = (param == "true");            
         }

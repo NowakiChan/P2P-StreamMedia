@@ -61,7 +61,12 @@ public:
     }
 
     void Set(const char* key,const char* value){
-        conn.set(key,value); // 返回bool型，往后考虑作为操作成功与否的标志
+	try{
+            conn.set(key,value);
+	} // 返回bool型，往后考虑作为操作成功与否的标志
+	catch (const sw::redis::Error &e) {
+    	    std::cout << e.what() << std::endl;
+	}
     }
 
     // template<typename T,typename... Args>
