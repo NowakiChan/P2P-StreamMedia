@@ -247,11 +247,27 @@ public:
         }
 
         
-        if(db_res != Json::nullValue && db_res["errorid"].asInt() == 0){
+        if(db_res != Json::nullValue && db_res["errorid"].asInt() == 0 && db_res["data"] != Json::nullValue &&
+           db_res["data"].isArray() && db_res["data"].size() > 0){
+            Json::Value& rows = db_res["data"];
+            for(Json::ArrayIndex i = 0;i < rows.size();++i){
+                Json::Value& row = rows[i];
+                const Json::Value st = db_interface.SelectUserResourceStats(row["userid"].asString());
+                if(st["errorid"].asInt() == 0 && st["data"] != Json::nullValue && st["data"].isArray() && st["data"].size() > 0){
+                    const Json::Value& s0 = st["data"][0];
+                    row["works"] = s0["works"];
+                    row["likes"] = s0["likes"];
+                    row["comments"] = s0["comments"];
+                }
+                else{
+                    row["works"] = "0";
+                    row["likes"] = "0";
+                    row["comments"] = "0";
+                }
+            }
             res["status"] = OK;
-            res["multiple"] = (db_res["data"].size() > 1);
-            res["user_info"] = (db_res["data"].size() > 1)
-                               ? db_res["data"] : db_res["data"][0];
+            res["multiple"] = (rows.size() > 1);
+            res["user_info"] = (rows.size() > 1) ? rows : rows[0];
         }
         else{
             res["status"] = (db_res == Json::nullValue) ? DATA_FORMAT_ERR : INTERNAL_ERR;

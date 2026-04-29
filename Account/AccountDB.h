@@ -27,6 +27,17 @@ public:
         return conn_pool->GetConnection()->Query(sql_str.c_str());
     }
 
+    /** 该用户上传资源数、这些资源获赞总数、其资源上一级评论数（reply_to IS NULL） */
+    Json::Value SelectUserResourceStats(const std::string userid){
+        const std::string uid_sql = (IsDigitStr(userid)) ? userid : GetSqlStr(userid);
+        const std::string sql =
+            "SELECT COUNT(mr.rid) AS works,COALESCE(SUM(mr.likes),0) AS likes,"
+            "(SELECT COUNT(*) FROM media_comment mc INNER JOIN media_resource mr2 ON mc.rid = mr2.rid "
+            "WHERE mr2.upload_user = " + uid_sql + " AND mr2.available != -1 AND mc.reply_to IS NULL) AS comments "
+            "FROM media_resource mr WHERE mr.upload_user = " + uid_sql + " AND mr.available != -1";
+        return conn_pool->GetConnection()->Query(sql.c_str());
+    }
+
     Json::Value SelectUserByPwd(const std::string identity,const std::string pwd){
         // Json::Value res;
         const std::string condition_str = "(userid=" + ((IsDigitStr(identity)) ? identity : GetSqlStr(identity)) + " OR username=" + GetSqlStr(identity) + ")";

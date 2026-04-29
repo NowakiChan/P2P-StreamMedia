@@ -36,7 +36,7 @@ public:
             std::cout<<"WebSocket Server : No active redis connection pool,now exit\n";
             return;
         }
-
+        SetHandler();
         svr_core.listen(port);
         svr_core.start_accept();
 

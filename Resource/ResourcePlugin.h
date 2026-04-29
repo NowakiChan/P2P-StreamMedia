@@ -12,6 +12,24 @@ class ResourcePlugin
 private:
     ResourceDB db_interface;
 private:
+    void AttachLabelsToInfoRows(Json::Value& info){
+        if(info == Json::nullValue || !info.isArray()){
+            return;
+        }
+        for(auto& row : info){
+            if(!row.isObject() || !row.isMember("rid")){
+                continue;
+            }
+            const Json::Value lbl = db_interface.GetReSourceLabel(row["rid"].asString());
+            if(lbl["errorid"].asInt() == 0 && lbl["data"] != Json::nullValue){
+                row["label"] = lbl["data"];
+            }
+            else{
+                row["label"] = Json::arrayValue;
+            }
+        }
+    }
+
     void AddPeerWeightAtRequest(const std::string pid){
         Json::Value node = db_interface.GetHashTableCache(pid);
         const int req_number = node["request"].asInt() + 1;
@@ -37,6 +55,10 @@ public:
             res.set_content(GetAvailablePeers(req),JSON_HTML_TYPE);
         });
 
+        svr->Get("/resource/label",[&](const httplib::Request& req, httplib::Response& res){         
+            res.set_content(GetLabel(),JSON_HTML_TYPE);
+        });
+
         svr->Post("/resource/update",[&](const httplib::Request& req, httplib::Response& res){         
             res.set_content(UpdateResourceList(req.body),JSON_HTML_TYPE);
         });
@@ -58,18 +80,37 @@ public:
         return res.toStyledString();
     }
 
+    std::string GetLabel(){
+        Json::Value res;
+        const Json::Value db_res = db_interface.GetAllLabel();
+        if(db_res["errorid"].asInt() == 0){
+            res["label"] = db_res["data"];
+            res["status"] = OK;
+        }
+        else{
+            res["status"] = INTERNAL_ERR;
+            res["label"] = Json::nullValue;
+        }
+
+        return res.toStyledString();
+    }
+
     std::string NewResource(const std::string data){
         Json::Value resource = GetJsonFromStr(data),res;
-	std::cout<<"recieve new resource ->\n"<<data<<std::endl;
         if(resource.isMember("rid") && resource.isMember("name") && resource.isMember("description") &&
            resource.isMember("uid") && resource.isMember("duration") && resource.isMember("resolution") &&
-           resource.isMember("time")){
+           resource.isMember("time") && resource.isMember("label") && resource["label"].isArray()){
             const std::string pid_time = db_interface.GetRIDCache(resource["rid"].asString());
-	    std::cout<<"svr timestamp -> "<<pid_time<<"\nrid is "<<resource["rid"].asString();
             if(pid_time.size() > 0 && pid_time == resource["time"].asString()){
                 db_interface.AddNewResource(resource["rid"].asString(),resource["name"].asString(),resource["uid"].asString(),
                                             resource["duration"].asString(),resource["resolution"].asString(),resource["description"].asString());
                 db_interface.DelCache(resource["rid"].asString()); // 写入mysql后删除redis中的缓存
+                // 写入标签
+                std::vector<std::string> labels;
+                for(int i = 0;i < resource["label"].size();i++){
+                    labels.push_back(resource["label"][i].asString());
+                }
+                db_interface.SetLabelRecord(labels,resource["rid"].asString());
                 res["status"] = OK;
             }
             else res["status"] = DATA_NOT_FOUND;
@@ -132,32 +173,41 @@ public:
     }
 
     std::string GetResourceInfo(const httplib::Request& req){
-        auto type = req.get_param_value("type");
-        auto patten = req.get_param_value("patten");
+        const std::string type = req.get_param_value("type");
+        const std::string patten = req.get_param_value("patten");
         Json::Value res;
-        if(type.size() <= 0){
+        if(type.empty() || (type != "all" && type != "id" && type != "name")){
             res["status"] = INVAILD_PARAM;
+            res["info"] = Json::nullValue;
+            return res.toStyledString();
+        }
+        if((type == "id" || type == "name") && patten.empty()){
+            res["status"] = INVAILD_PARAM;
+            res["info"] = Json::nullValue;
             return res.toStyledString();
         }
 
+        Json::Value db_res;
         if(type == "all"){
-            res["info"] = db_interface.SelectResource()["data"];
-            res["status"] = OK;
+            db_res = db_interface.SelectResource();
         }
-        else if(type == "id" && patten.size() > 0){
-            if(IsDigitStr(patten))
-                res["info"] = db_interface.SelectResourceByID(patten)["data"];
-            else res["status"] = INVAILD_PARAM;
-        }
-        else if(type == "name"){
-            res["info"] = db_interface.SelectResourceByName(patten)["data"];
-            res["status"] = OK;
+        else if(type == "id"){
+            db_res = db_interface.SelectResourceByID(patten);
         }
         else{
-            res["status"] = INVAILD_PARAM;
+            db_res = db_interface.SelectResourceByName(patten);
         }
-	std::cout<<res.toStyledString()<<std::endl;
 
+        if(db_res["errorid"].asInt() != 0){
+            res["status"] = INTERNAL_ERR;
+            res["info"] = Json::nullValue;
+            return res.toStyledString();
+        }
+
+        Json::Value info = (db_res["data"] == Json::nullValue) ? Json::Value(Json::arrayValue) : db_res["data"];
+        AttachLabelsToInfoRows(info);
+        res["status"] = OK;
+        res["info"] = info;
         return res.toStyledString();
     }
 };

@@ -23,28 +23,40 @@ public:
     }
 
     Json::Value SelectResourceByName(const std::string name){
-        const std::string sql = "SELECT rid,resource_name,resource_description,upload_time,upload_user,likes,video_length,resolution,username FROM media_resource,media_user ",
-                          condition = " WHERE resource_name LIKE " + GetSqlStr("%" + name + "%") + " AND media_resource.upload_user = media_user.userid AND available != -1";
-        return mysql_pool->GetConnection()->Query(sql.c_str());
+        const std::string sql =
+            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
+            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
+            "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
+            condition = "WHERE mr.resource_name LIKE " + GetSqlStr("%" + name + "%") + " AND mr.available != -1";
+        const std::string query = sql + condition;
+        return mysql_pool->GetConnection()->Query(query.c_str());
     }
 
     Json::Value SelectResourceByID(const std::string rid){
-        const std::string sql = "SELECT rid,resource_name,resource_description,upload_time,upload_user,likes,video_length,resolution,username FROM media_resource,media_user ",
-                          condition = " WHERE rid = " + GetSqlStr(rid) + " AND media_resource.upload_user = media_user.userid AND available != -1";
-        return mysql_pool->GetConnection()->Query(sql.c_str());
+        const std::string sql =
+            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
+            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
+            "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
+            condition = "WHERE mr.rid = " + GetSqlStr(rid) + " AND mr.available != -1";
+        const std::string query = sql + condition;
+        return mysql_pool->GetConnection()->Query(query.c_str());
     }
 
     Json::Value SelectResource(){
-        const std::string sql = "SELECT rid,resource_name,resource_description,upload_time,upload_user,likes,video_length,resolution,username FROM media_resource,media_user ",
-                          condition = " WHERE media_resource.upload_user = media_user.userid AND available != -1";
-	const std::string query = sql + condition;
+        const std::string sql =
+            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
+            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
+            "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
+            condition = "WHERE mr.available != -1";
+        const std::string query = sql + condition;
         return mysql_pool->GetConnection()->Query(query.c_str());
     }
 
     void SetRIDCache(const std::string rid,const std::string timestamp){
-	std::cout<<"set "<<rid<<" to "<<timestamp<<"\n";
         redis_pool->GetConnection()->Set(rid.c_str(),timestamp.c_str());
-	std::cout<<GetRIDCache(rid)<<"\n";
     }
 
     std::string GetRIDCache(const std::string rid){
@@ -81,7 +93,39 @@ public:
         return redis_pool->GetConnection()->HGet(key.c_str());
     }
 
-    
+    Json::Value GetReSourceLabel(const std::string rid){
+        const std::string query = "SELECT label_name,label_type FROM label WHERE labelid IN (SELECT labelid FROM resource_label WHERE rid = " 
+                                  + GetSqlStr(rid) + ")";
+        return mysql_pool->GetConnection()->Query(query.c_str());
+    }
+
+    Json::Value GetAllLabel(){
+        const std::string query = "SELECT * FROM label WHERE label_type = 0";
+        return mysql_pool->GetConnection()->Query(query.c_str());
+    }
+
+    Json::Value SetLabelRecord(const std::vector<std::string> labels,const std::string rid){
+        std::string value_str;
+        for(size_t i = 0;i < labels.size();i++){
+            value_str += "(" + GetSqlStr(rid) + "," + GetSqlStr(labels[i]) + ")";
+            if(i != labels.size() - 1)
+                value_str += ",";
+        }
+        const std::string query = "INSERT INTO resource_label(rid,labelid) VALUES " + value_str;
+        return mysql_pool->GetConnection()->Execute(query.c_str());
+    }
+
+    Json::Value AddSecondClassLabel(const std::vector<std::string> name){
+        std::string value_str;
+        for(size_t i = 0;i < name.size();i++){
+            const std::string labelid = std::to_string(ResourceAlgo::GetInstance().SnowflakeID());
+            value_str += "(" + GetSqlStr(labelid) + "," + GetSqlStr(name[i]) + ",1)";
+            if(i != name.size() - 1)
+                value_str += ",";
+        }
+        const std::string query = "INSERT INTO label(labelid,label_name,label_type) VALUES " + value_str;
+        return mysql_pool->GetConnection()->Execute(query.c_str());
+    }
 };
 
 #endif

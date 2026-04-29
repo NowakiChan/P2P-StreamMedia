@@ -1,5 +1,6 @@
 #include"Account/AccountPlugin.h"
 #include"Resource/ResourcePlugin.h"
+#include"Interact/InteractPlugin.h"
 #include"SQLConnector/RedisConnector.h"
 #include"Server/P2PServer.h"
 #include<iostream>
@@ -22,7 +23,8 @@ int main(int arg,char* args[]){
         P2PServer svr(config);
         svr_ptr = &svr;
         svr.JoinPath(AccountPlugin(svr.GetMysqlPool(),config.user_file_storage_path),
-                     ResourcePlugin(svr.GetMysqlPool(),svr.GetRedisPool()));
+                     ResourcePlugin(svr.GetMysqlPool(),svr.GetRedisPool()),
+                     InteractPlugin(svr.GetMysqlPool()));
         // std::cout<<"Server now start running at port : "<<config.port<<"\n";
         signal(SIGINT,[](int sig){ 
             if(svr_ptr) svr_ptr->Stop();
