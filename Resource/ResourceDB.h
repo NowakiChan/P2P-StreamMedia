@@ -22,34 +22,49 @@ public:
         return mysql_pool->GetConnection()->Execute(query.c_str());
     }
 
-    Json::Value SelectResourceByName(const std::string name){
-        const std::string sql =
-            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
-            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
-            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
-            "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
+    Json::Value SelectResourceByName(const std::string name,const std::string uid = ""){
+        const std::string is_like_sql = (IsDigitStr(uid) && uid.size() > 0)
+            ? "((SELECT COUNT(*) FROM like_record lr WHERE lr.rid = mr.rid AND lr.user = " + uid +
+              ") > 0) AS is_like "
+            : "0 AS is_like ";
+        const std::string sql = std::string(
+                   "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
+                   "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments,") +
+               is_like_sql +
+               "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
             condition = "WHERE mr.resource_name LIKE " + GetSqlStr("%" + name + "%") + " AND mr.available != -1";
         const std::string query = sql + condition;
         return mysql_pool->GetConnection()->Query(query.c_str());
     }
 
-    Json::Value SelectResourceByID(const std::string rid){
-        const std::string sql =
-            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
-            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
-            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
-            "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
+    Json::Value SelectResourceByID(const std::string rid,const std::string uid = ""){
+        const std::string is_like_sql = (IsDigitStr(uid) && uid.size() > 0)
+            ? "((SELECT COUNT(*) FROM like_record lr WHERE lr.rid = mr.rid AND lr.user = " + uid +
+              ") > 0) AS is_like "
+            : "0 AS is_like ";
+        const std::string sql = std::string(
+                   "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
+                   "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments,") +
+               is_like_sql +
+               "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
             condition = "WHERE mr.rid = " + GetSqlStr(rid) + " AND mr.available != -1";
         const std::string query = sql + condition;
         return mysql_pool->GetConnection()->Query(query.c_str());
     }
 
-    Json::Value SelectResource(){
-        const std::string sql =
-            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
-            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
-            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
-            "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
+    Json::Value SelectResource(const std::string uid = ""){
+        const std::string is_like_sql = (IsDigitStr(uid) && uid.size() > 0)
+            ? "((SELECT COUNT(*) FROM like_record lr WHERE lr.rid = mr.rid AND lr.user = " + uid +
+              ") > 0) AS is_like "
+            : "0 AS is_like ";
+        const std::string sql = std::string(
+                   "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
+                   "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments,") +
+               is_like_sql +
+               "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
             condition = "WHERE mr.available != -1";
         const std::string query = sql + condition;
         return mysql_pool->GetConnection()->Query(query.c_str());

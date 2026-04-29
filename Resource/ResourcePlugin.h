@@ -175,6 +175,7 @@ public:
     std::string GetResourceInfo(const httplib::Request& req){
         const std::string type = req.get_param_value("type");
         const std::string patten = req.get_param_value("patten");
+        const std::string uid = req.get_param_value("uid");
         Json::Value res;
         if(type.empty() || (type != "all" && type != "id" && type != "name")){
             res["status"] = INVAILD_PARAM;
@@ -186,16 +187,21 @@ public:
             res["info"] = Json::nullValue;
             return res.toStyledString();
         }
+        if(uid.size() > 0 && !IsDigitStr(uid)){
+            res["status"] = INVAILD_PARAM;
+            res["info"] = Json::nullValue;
+            return res.toStyledString();
+        }
 
         Json::Value db_res;
         if(type == "all"){
-            db_res = db_interface.SelectResource();
+            db_res = db_interface.SelectResource(uid);
         }
         else if(type == "id"){
-            db_res = db_interface.SelectResourceByID(patten);
+            db_res = db_interface.SelectResourceByID(patten,uid);
         }
         else{
-            db_res = db_interface.SelectResourceByName(patten);
+            db_res = db_interface.SelectResourceByName(patten,uid);
         }
 
         if(db_res["errorid"].asInt() != 0){

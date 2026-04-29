@@ -56,8 +56,15 @@ public:
         const std::string type = req.get_param_value("type");
         const std::string rid = req.get_param_value("rid");
         const std::string cid = req.get_param_value("cid");
+        const std::string uid = req.get_param_value("uid");
 
         if(type.size() == 0 || rid.size() == 0){
+            res["status"] = INVAILD_PARAM;
+            res["comment"] = Json::nullValue;
+            return res.toStyledString();
+        }
+
+        if(uid.size() > 0 && !IsDigitStr(uid)){
             res["status"] = INVAILD_PARAM;
             res["comment"] = Json::nullValue;
             return res.toStyledString();
@@ -75,7 +82,7 @@ public:
             return res.toStyledString();
         }
 
-        Json::Value db_res = db_interface.SelectComment(rid,std::atoi(type.c_str()),cid);
+        Json::Value db_res = db_interface.SelectComment(rid,std::atoi(type.c_str()),cid,uid);
         if(db_res["errorid"].asInt() == 0){
             res["status"] = OK;
             res["comment"] = (db_res["data"] == Json::nullValue) ? Json::arrayValue : db_res["data"];

@@ -20,12 +20,18 @@ public:
         return conn_pool->GetConnection()->Execute(query.c_str());
     }
 
-    Json::Value SelectComment(const std::string rid,const int type = 1,const std::string cid = ""){
-        const std::string sql =
-            "SELECT media_comment.cid,media_comment.content,media_comment.user AS userid,media_user.username,media_comment.publish_time,"
-            "(SELECT COUNT(*) FROM media_comment AS reply WHERE reply.reply_to = media_comment.cid) AS replies,"
-            "(SELECT COUNT(*) FROM like_comment WHERE like_comment.cid = media_comment.cid) AS likes "
-            "FROM media_comment LEFT JOIN media_user ON media_comment.user = media_user.userid ";
+    Json::Value SelectComment(const std::string rid,const int type = 1,const std::string cid = "",
+                              const std::string uid = ""){
+        const std::string is_like_sql = (IsDigitStr(uid) && uid.size() > 0)
+            ? "((SELECT COUNT(*) FROM like_comment lc WHERE lc.cid = media_comment.cid AND lc.user = " + uid +
+              ") > 0) AS is_like "
+            : "0 AS is_like ";
+        const std::string sql = std::string(
+                   "SELECT media_comment.cid,media_comment.content,media_comment.user AS userid,media_user.username,media_comment.publish_time,"
+                   "(SELECT COUNT(*) FROM media_comment AS reply WHERE reply.reply_to = media_comment.cid) AS replies,"
+                   "(SELECT COUNT(*) FROM like_comment WHERE like_comment.cid = media_comment.cid) AS likes,") +
+               is_like_sql +
+               "FROM media_comment LEFT JOIN media_user ON media_comment.user = media_user.userid ";
         std::string condition = "WHERE media_comment.rid = " + GetSqlStr(rid);
         if(type == 2){
             condition += " AND media_comment.reply_to = " + GetSqlStr(cid);
