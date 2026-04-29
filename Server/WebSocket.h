@@ -7,11 +7,13 @@
 #include"../SQLConnector/ThreadPool.h"
 #include"../SQLConnector/RedisConnector.h"
 
-typedef websocketpp::server<websocketpp::config::asio> websocketsvr;
-typedef websocketpp::connection_hdl hdl;
 
 class WebSocketSvr{
 private:
+    typedef websocketpp::server<websocketpp::config::asio> websocketsvr;
+    typedef websocketpp::connection_hdl hdl;
+    typedef websocketpp::server<websocketpp::config::asio>::message_ptr msgbody;
+
     websocketsvr svr_core;
     std::mutex conn_lock;
     std::unordered_map<std::string,hdl> conn_list;
@@ -67,18 +69,37 @@ private:
     void Signal(const Json::Value,const std::string);
     void ConnUpdate(const Json::Value,const std::string);
 
-    void MsgHandler(hdl client,websocketpp::server<websocketpp::config::asio>::message_ptr msg){
+    void MsgHandler(hdl client,msgbody msg){
         Json::Value req = GetJsonFromStr(msg->get_payload());
-        if(req.isMember("pid") && req.isMember("req_type") && req.isMember("req_data")){
-            const std::string type = req["req_type"].asString();
-            const std::string pid = req["pid"].asString();
-            if(type == "update") Update(req["req_data"],pid);
-            else if(type == "signal") Signal(req["req_data"],pid);
-            else if(type == "connection") ConnUpdate(req["req_data"],pid);
+        Json::Value res;
+        res["data"] = Json::nullValue;
+        if(req.isMember("action") && req.isMember("host_id") && req.isMember("data")){
+            const std::string type = req["action"].asString();
+            const std::string pid = req["host_id"].asString();
+            res["action"] = type;
+            res["host_id"] = pid;
+
+            // Validate that host_id in payload matches the bound host on this connection.
+            {
+                std::unique_lock<std::mutex> lock(conn_lock);
+                if(conn_map.find(client) == conn_map.end() || conn_map[client] != pid){
+                    res["status"] = VERIFY_ERR;
+                    svr_core.send(client,res.toStyledString(),websocketpp::frame::opcode::text);
+                    return;
+                }
+            }
+
+            if(type == "update_metrics") Update(req["data"],pid);
+            else if(type == "signal_forward") Signal(req["data"],pid);
+            else if(type == "connection_feedback") ConnUpdate(req["data"],pid);
+            else{
+                res["status"] = DATA_FORMAT_ERR;
+                svr_core.send(client,res.toStyledString(),websocketpp::frame::opcode::text);
+            }
         }
         else{
-            Json::Value res;
-            res["type"] = "handler";
+            res["action"] = "handle_request";
+            res["host_id"] = Json::nullValue;
             res["status"] = DATA_FORMAT_ERR;
             svr_core.send(client,res.toStyledString(),websocketpp::frame::opcode::text);
         }
@@ -95,7 +116,7 @@ private:
         );
 
         svr_core.set_message_handler(
-            [this](hdl client,websocketpp::server<websocketpp::config::asio>::message_ptr msg){
+            [this](hdl client,msgbody msg){
                 MsgHandler(client,msg);
             }
         );
@@ -105,6 +126,17 @@ private:
 void WebSocketSvr::Open(hdl new_conn_hdl){
     auto conn = svr_core.get_con_from_hdl(new_conn_hdl);
     const std::string pid = conn->get_request().get_header("Device-ID");
+    Json::Value res;
+    res["data"] = Json::nullValue;
+
+    if(pid.size() == 0){
+        res["action"] = "connect";
+        res["host_id"] = Json::nullValue;
+        res["status"] = DATA_FORMAT_ERR;
+        svr_core.send(new_conn_hdl,res.toStyledString(),websocketpp::frame::opcode::text);
+        return;
+    }
+
     {
         std::unique_lock<std::mutex> lock(conn_lock);
         conn_list.insert({pid,new_conn_hdl});
@@ -114,8 +146,8 @@ void WebSocketSvr::Open(hdl new_conn_hdl){
     this->redis_pool->GetConnection()->HSet(pid.c_str(),"weight","0.5","last_update",std::to_string(std::time(nullptr)).c_str(),
                                             "upload","0","download","0","conn","0","request","0");
 
-    Json::Value res;
-    res["type"] = "open";
+    res["action"] = "connect";
+    res["host_id"] = pid;
     res["status"] = OK;
     svr_core.send(new_conn_hdl,res.toStyledString(),websocketpp::frame::opcode::text);
 }
@@ -133,7 +165,9 @@ void WebSocketSvr::Close(hdl close_hdl){
 
 void WebSocketSvr::Update(const Json::Value update_args,const std::string client_id){
     Json::Value res;
-    res["type"] = "update";
+    res["action"] = "update_metrics";
+    res["host_id"] = client_id;
+    res["data"] = Json::nullValue;
 
     if(update_args.isMember("upload") && update_args.isMember("download") && 
        update_args.isMember("conn")){
@@ -160,16 +194,22 @@ void WebSocketSvr::Update(const Json::Value update_args,const std::string client
 }
 
 void WebSocketSvr::Signal(const Json::Value msg,const std::string from_client){
-    Json::Value res,transfer_msg = msg;
-    res["type"] = "signal";
+    Json::Value res,reply,transfer_msg = msg;
+    res["action"] = "signal_forward";
+    res["host_id"] = from_client;
+    res["data"] = Json::nullValue;
     
     if(msg.isMember("to")){
         if(conn_list.find(msg["to"].asString()) != conn_list.end()){
+            reply["action"] = "signal_received";
+            reply["host_id"] = msg["to"];
             transfer_msg["from"] = from_client;
-	    transfer_msg["type"] = "offer";
-            svr_core.send(conn_list[msg["to"].asString()],transfer_msg.toStyledString(),
+	        transfer_msg["to"] = msg["to"];
+            reply["data"] = transfer_msg;
+            svr_core.send(conn_list[msg["to"].asString()],reply.toStyledString(),
                           websocketpp::frame::opcode::text);
             res["status"] = OK;
+            res["data"]["to"] = msg["to"];
         }
         else res["status"] = NO_SUCH_PEER;
     }
@@ -180,9 +220,17 @@ void WebSocketSvr::Signal(const Json::Value msg,const std::string from_client){
 
 void WebSocketSvr::ConnUpdate(const Json::Value msg,const std::string client_id){
     Json::Value res;
-    res["type"] = "connection";
+    res["action"] = "connection_feedback";
+    res["host_id"] = client_id;
+    res["data"] = Json::nullValue;
+
     if(msg.isMember("type") && msg.isMember("peers") && msg["peers"].isArray()){
         const std::string type = msg["type"].asString();
+        if(type != "fail" && type != "unuse" && type != "connect"){
+            res["status"] = INVAILD_PARAM;
+            svr_core.send(conn_list[client_id],res.toStyledString(),websocketpp::frame::opcode::text);
+            return;
+        }
         for(auto& peer : msg["peers"]){
             Json::Value peer_info = redis_pool->GetConnection()->HGet(peer.asCString());
             int request_number = 0; double weight = 0.0;

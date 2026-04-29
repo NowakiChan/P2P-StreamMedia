@@ -66,6 +66,10 @@ public:
         svr->Post("/resource/upload",[&](const httplib::Request& req, httplib::Response& res){         
             res.set_content(NewResource(req.body),JSON_HTML_TYPE);
         });
+
+        svr->Get("/user/works",[&](const httplib::Request& req, httplib::Response& res){
+            res.set_content(GetUserWorks(req),JSON_HTML_TYPE);
+        });
     }
 
     std::string GetResourceID(){
@@ -146,23 +150,22 @@ public:
         auto rid = req.get_param_value("id");
         res["status"] = INTERNAL_ERR;
         if(rid.size() > 0){
-            // auto cmp = [](std::pair<std::string,double>& a,std::pair<std::string,double>& b) { return a.second >= b.second; };
-            // std::set<std::pair<std::string,double>,decltype(cmp)> nodes(cmp);
-
-            std::map<double,std::string,std::greater<double>> nodes;
+            std::multimap<double,std::string,std::greater<double>> nodes;
+            const time_t now = std::time(nullptr);
             for(auto& node : db_interface.GetResourceCache(rid)){
                 Json::Value node_info = db_interface.GetHashTableCache(node);
-                const time_t now = std::time(nullptr);
-                if(node_info["last_update"].asInt() - now <= 120){
+                const time_t last_update = node_info["last_update"].asInt();
+                if(last_update > 0 && now - last_update <= 120){
                     nodes.insert({node_info["weight"].asDouble(),node}); // 根据节点权重排序
                 }
             }
             Json::Value select_node = Json::arrayValue;
             for(auto& node : nodes){
-                if(select_node.size() <= 4){
+                if(select_node.size() < 4){
                     select_node.append(node.second);
                     AddPeerWeightAtRequest(node.second);
                 }
+                else break;
             }
             res["status"] = OK;
             res["peers"] = select_node;
@@ -214,6 +217,29 @@ public:
         AttachLabelsToInfoRows(info);
         res["status"] = OK;
         res["info"] = info;
+        return res.toStyledString();
+    }
+
+    std::string GetUserWorks(const httplib::Request& req){
+        Json::Value res;
+        const std::string uid = req.get_param_value("uid");
+        if(uid.empty() || !IsDigitStr(uid)){
+            res["status"] = INVAILD_PARAM;
+            res["works"] = Json::nullValue;
+            return res.toStyledString();
+        }
+
+        const Json::Value db_res = db_interface.SelectResourceByUploader(uid);
+        if(db_res["errorid"].asInt() != 0){
+            res["status"] = INTERNAL_ERR;
+            res["works"] = Json::nullValue;
+            return res.toStyledString();
+        }
+
+        Json::Value works = (db_res["data"] == Json::nullValue) ? Json::Value(Json::arrayValue) : db_res["data"];
+        AttachLabelsToInfoRows(works);
+        res["status"] = OK;
+        res["works"] = works;
         return res.toStyledString();
     }
 };

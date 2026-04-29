@@ -70,6 +70,17 @@ public:
         return mysql_pool->GetConnection()->Query(query.c_str());
     }
 
+    Json::Value SelectResourceByUploader(const std::string uid){
+        const std::string sql =
+            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,"
+            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
+            "FROM media_resource mr ";
+        const std::string condition = "WHERE mr.upload_user = " + GetSqlStr(uid) + " AND mr.available != -1";
+        const std::string query = sql + condition;
+        return mysql_pool->GetConnection()->Query(query.c_str());
+    }
+
     void SetRIDCache(const std::string rid,const std::string timestamp){
         redis_pool->GetConnection()->Set(rid.c_str(),timestamp.c_str());
     }
