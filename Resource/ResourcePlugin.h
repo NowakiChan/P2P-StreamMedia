@@ -67,9 +67,6 @@ public:
             res.set_content(NewResource(req.body),JSON_HTML_TYPE);
         });
 
-        svr->Get("/user/works",[&](const httplib::Request& req, httplib::Response& res){
-            res.set_content(GetUserWorks(req),JSON_HTML_TYPE);
-        });
     }
 
     std::string GetResourceID(){
@@ -220,28 +217,6 @@ public:
         return res.toStyledString();
     }
 
-    std::string GetUserWorks(const httplib::Request& req){
-        Json::Value res;
-        const std::string uid = req.get_param_value("uid");
-        if(uid.empty() || !IsDigitStr(uid)){
-            res["status"] = INVAILD_PARAM;
-            res["works"] = Json::nullValue;
-            return res.toStyledString();
-        }
-
-        const Json::Value db_res = db_interface.SelectResourceByUploader(uid);
-        if(db_res["errorid"].asInt() != 0){
-            res["status"] = INTERNAL_ERR;
-            res["works"] = Json::nullValue;
-            return res.toStyledString();
-        }
-
-        Json::Value works = (db_res["data"] == Json::nullValue) ? Json::Value(Json::arrayValue) : db_res["data"];
-        AttachLabelsToInfoRows(works);
-        res["status"] = OK;
-        res["works"] = works;
-        return res.toStyledString();
-    }
 };
 
 #endif

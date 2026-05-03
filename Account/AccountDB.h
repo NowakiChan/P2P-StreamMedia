@@ -38,6 +38,23 @@ public:
         return conn_pool->GetConnection()->Query(sql.c_str());
     }
 
+    Json::Value SelectUserWorks(const std::string userid){
+        const std::string uid_sql = (IsDigitStr(userid)) ? userid : GetSqlStr(userid);
+        const std::string sql =
+            "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,"
+            "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
+            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid AND mc.reply_to IS NULL) AS comments "
+            "FROM media_resource mr WHERE mr.upload_user = " + uid_sql + " AND mr.available != -1";
+        return conn_pool->GetConnection()->Query(sql.c_str());
+    }
+
+    Json::Value SelectResourceLabels(const std::string rid){
+        const std::string query =
+            "SELECT label_name,label_type FROM label WHERE labelid IN "
+            "(SELECT labelid FROM resource_label WHERE rid = " + GetSqlStr(rid) + ")";
+        return conn_pool->GetConnection()->Query(query.c_str());
+    }
+
     Json::Value SelectUserByPwd(const std::string identity,const std::string pwd){
         // Json::Value res;
         const std::string condition_str = "(userid=" + ((IsDigitStr(identity)) ? identity : GetSqlStr(identity)) + " OR username=" + GetSqlStr(identity) + ")";

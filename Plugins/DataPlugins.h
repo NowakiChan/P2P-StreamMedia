@@ -18,6 +18,9 @@
 std::string GetSqlStr(const std::string);
 bool IsDigitStr(const std::string);
 Json::Value GetJsonFromStr(const std::string);
+/** Accept numeric or string Json (e.g. Redis HGet); avoids Json::LogicError from strict asDouble/asInt. */
+double JsonNumAsDouble(const Json::Value& v);
+int JsonNumAsInt(const Json::Value& v);
 bool ComputeSHA256(const std::string&, std::string&);
 std::string GetRedisStr(int&&);
 std::string GetRedisStr(double&&);

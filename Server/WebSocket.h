@@ -173,19 +173,19 @@ void WebSocketSvr::Update(const Json::Value update_args,const std::string client
        update_args.isMember("conn")){
         // 更新节点权重列表
         Json::Value node_data = this->redis_pool->GetConnection()->HGet(client_id.c_str());
-        double old_upload = node_data["upload"].asDouble(),
-               old_download = node_data["download"].asDouble(),
-               old_conn = node_data["conn"].asDouble(),
-               new_upload = update_args["upload"].asDouble(),
-               new_download = update_args["download"].asDouble(),
-               new_conn = update_args["conn"].asDouble();
+        const double old_upload = JsonNumAsDouble(node_data["upload"]),
+               old_download = JsonNumAsDouble(node_data["download"]),
+               old_conn = JsonNumAsDouble(node_data["conn"]),
+               new_upload = JsonNumAsDouble(update_args["upload"]),
+               new_download = JsonNumAsDouble(update_args["download"]),
+               new_conn = JsonNumAsDouble(update_args["conn"]);
         const double new_weight = ResourceAlgo::GetInstance().CalculateWeight(new_upload,new_download,new_conn,
                                                                               old_upload,old_download,old_conn);
 
         this->redis_pool->GetConnection()->HSet(client_id.c_str(),
                                                 "weight",std::to_string(new_weight).c_str(),"last_update",std::to_string(std::time(nullptr)).c_str(),
-                                                "upload",update_args["upload"].asCString(),"download",update_args["download"].asCString(),
-                                                "conn",update_args["conn"].asCString());
+                                                "upload",std::to_string(new_upload).c_str(),"download",std::to_string(new_download).c_str(),
+                                                "conn",std::to_string(new_conn).c_str());
         res["status"] = OK;
     }
     else res["status"] = DATA_FORMAT_ERR;
@@ -231,18 +231,19 @@ void WebSocketSvr::ConnUpdate(const Json::Value msg,const std::string client_id)
             svr_core.send(conn_list[client_id],res.toStyledString(),websocketpp::frame::opcode::text);
             return;
         }
-        for(auto& peer : msg["peers"]){
-            Json::Value peer_info = redis_pool->GetConnection()->HGet(peer.asCString());
+        for(const Json::Value& peer : msg["peers"]){
+            const std::string peer_id = peer.asString();
+            Json::Value peer_info = redis_pool->GetConnection()->HGet(peer_id.c_str());
             int request_number = 0; double weight = 0.0;
             if(type == "fail" || type == "unuse"){
-                request_number = peer_info["request"].asInt() - 1;
-                weight = std::clamp(peer_info["weight"].asDouble() * ((type == "unuse") ? 1.2 : 1),0.0,1.0);
+                request_number = JsonNumAsInt(peer_info["request"]) - 1;
+                weight = std::clamp(JsonNumAsDouble(peer_info["weight"]) * ((type == "unuse") ? 1.2 : 1),0.0,1.0);
             }
             else if(type == "connect"){
-                request_number = peer_info["request"].asInt() - 1;
-                weight = std::clamp(peer_info["weight"].asDouble() * 1.1,0.0,1.0);
+                request_number = JsonNumAsInt(peer_info["request"]) - 1;
+                weight = std::clamp(JsonNumAsDouble(peer_info["weight"]) * 1.1,0.0,1.0);
             }
-            redis_pool->GetConnection()->HSet(peer.asString().c_str(),
+            redis_pool->GetConnection()->HSet(peer_id.c_str(),
                                               "request",std::to_string(request_number).c_str(),
                                               "weight",std::to_string(weight).c_str());
         }

@@ -25,6 +25,30 @@ Json::Value GetJsonFromStr(const std::string jstr){
     return res;
 }
 
+double JsonNumAsDouble(const Json::Value& v){
+    if(v.isNull() || v.isObject() || v.isArray()) return 0.0;
+    if(v.isNumeric()) return v.asDouble();
+    if(v.isBool()) return v.asBool() ? 1.0 : 0.0;
+    if(v.isString()){
+        try { return std::stod(v.asString()); }
+        catch(const std::exception&) { return 0.0; }
+    }
+    return 0.0;
+}
+
+int JsonNumAsInt(const Json::Value& v){
+    if(v.isNull() || v.isObject() || v.isArray()) return 0;
+    if(v.isInt() || v.isUInt()) return v.asInt();
+    if(v.isInt64() || v.isUInt64()) return static_cast<int>(v.asInt64());
+    if(v.isDouble()) return static_cast<int>(v.asDouble());
+    if(v.isBool()) return v.asBool() ? 1 : 0;
+    if(v.isString()){
+        try { return std::stoi(v.asString()); }
+        catch(const std::exception&) { return 0; }
+    }
+    return 0;
+}
+
 bool ComputeSHA256(const std::string& unhashed, std::string& hashed)
 {
     bool success = false;

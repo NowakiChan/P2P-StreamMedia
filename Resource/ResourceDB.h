@@ -30,7 +30,7 @@ public:
         const std::string sql = std::string(
                    "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
                    "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
-                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments,") +
+                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid AND mc.reply_to IS NULL) AS comments,") +
                is_like_sql +
                "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
             condition = "WHERE mr.resource_name LIKE " + GetSqlStr("%" + name + "%") + " AND mr.available != -1";
@@ -46,7 +46,7 @@ public:
         const std::string sql = std::string(
                    "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
                    "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
-                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments,") +
+                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid AND mc.reply_to IS NULL) AS comments,") +
                is_like_sql +
                "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
             condition = "WHERE mr.rid = " + GetSqlStr(rid) + " AND mr.available != -1";
@@ -62,7 +62,7 @@ public:
         const std::string sql = std::string(
                    "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,mr.upload_user AS uid,mu.username,"
                    "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
-                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments,") +
+                   "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid AND mc.reply_to IS NULL) AS comments,") +
                is_like_sql +
                "FROM media_resource mr INNER JOIN media_user mu ON mr.upload_user = mu.userid ",
             condition = "WHERE mr.available != -1";
@@ -74,7 +74,7 @@ public:
         const std::string sql =
             "SELECT mr.rid,mr.resource_name AS name,mr.resource_description AS desciption,"
             "mr.upload_time AS upload_time,mr.video_length AS duration,mr.resolution,mr.likes,"
-            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid) AS comments "
+            "(SELECT COUNT(*) FROM media_comment mc WHERE mc.rid = mr.rid AND mc.reply_to IS NULL) AS comments "
             "FROM media_resource mr ";
         const std::string condition = "WHERE mr.upload_user = " + GetSqlStr(uid) + " AND mr.available != -1";
         const std::string query = sql + condition;

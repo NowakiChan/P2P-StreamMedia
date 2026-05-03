@@ -15,6 +15,23 @@ private:
     AccountDB db_interface;
     const char* avator_storge_path;
 private:
+    void AttachLabelsToWorksRows(Json::Value& works){
+        if(works == Json::nullValue || !works.isArray()){
+            return;
+        }
+        for(auto& row : works){
+            if(!row.isObject() || !row.isMember("rid")){
+                continue;
+            }
+            const Json::Value lbl = db_interface.SelectResourceLabels(row["rid"].asString());
+            if(lbl["errorid"].asInt() == 0 && lbl["data"] != Json::nullValue){
+                row["label"] = lbl["data"];
+            }
+            else{
+                row["label"] = Json::arrayValue;
+            }
+        }
+    }
     Json::Value GetToken(std::string);
     int SetPassword(const Json::Value&);
     int UpdateAvator(const std::string,const std::string,const std::string,const std::string);
@@ -59,6 +76,10 @@ public:
 
         server->Get("/user/info",[&](const httplib::Request& req, httplib::Response& res){   
             res.set_content(SearchInfo(req),JSON_HTML_TYPE);
+        });
+
+        server->Get("/user/works",[&](const httplib::Request& req, httplib::Response& res){
+            res.set_content(GetUserWorks(req),JSON_HTML_TYPE);
         });
     }
 
@@ -274,6 +295,29 @@ public:
             res["multiple"] = false;
             res["user_info"] = Json::nullValue;
         }
+        return res.toStyledString();
+    }
+
+    std::string GetUserWorks(const httplib::Request& req){
+        Json::Value res;
+        const std::string uid = req.get_param_value("uid");
+        if(uid.empty() || !IsDigitStr(uid)){
+            res["status"] = INVAILD_PARAM;
+            res["works"] = Json::nullValue;
+            return res.toStyledString();
+        }
+
+        const Json::Value db_res = db_interface.SelectUserWorks(uid);
+        if(db_res["errorid"].asInt() != 0){
+            res["status"] = INTERNAL_ERR;
+            res["works"] = Json::nullValue;
+            return res.toStyledString();
+        }
+
+        Json::Value works = (db_res["data"] == Json::nullValue) ? Json::Value(Json::arrayValue) : db_res["data"];
+        AttachLabelsToWorksRows(works);
+        res["status"] = OK;
+        res["works"] = works;
         return res.toStyledString();
     }
 
