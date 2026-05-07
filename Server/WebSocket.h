@@ -4,9 +4,16 @@
 #include<websocketpp/config/asio_no_tls.hpp>
 #include<websocketpp/server.hpp>
 #include<unordered_map>
+#include<cstring>
+#include<exception>
+#include<iostream>
 #include"../SQLConnector/ThreadPool.h"
 #include"../SQLConnector/RedisConnector.h"
+#include"../Plugins/ResponseCode.h"
 
+/** Binary relay: first 32 bytes are fixed routing — 16-byte ASCII `from`, 16-byte ASCII `to` (space-padded). */
+static constexpr std::size_t RELAY_ROUTE_HEADER = 32;
+static constexpr std::size_t RELAY_ID_FIELD = 16;
 
 class WebSocketSvr{
 private:
@@ -68,6 +75,12 @@ private:
     void Update(const Json::Value,const std::string);
     void Signal(const Json::Value,const std::string);
     void ConnUpdate(const Json::Value,const std::string);
+    void BinaryRelayForward(hdl client,msgbody msg);
+    static void WriteRelayId16(char* out,const std::string& id);
+    static std::string TrimRelayId16(const char* field);
+    void SendBinaryRelayNotice(hdl client,const std::string& host_id,int status);
+    void ForceDisconnect(hdl c);
+    void EraseConnMapsIfHeld(hdl close_hdl);
 
     void MsgHandler(hdl client,msgbody msg){
         Json::Value req = GetJsonFromStr(msg->get_payload());
@@ -108,20 +121,78 @@ private:
 
     void SetHandler(){
         svr_core.set_open_handler(
-            [this](hdl new_hdl){ Open(new_hdl); }
+            [this](hdl new_hdl){
+                try{
+                    Open(new_hdl);
+                }
+                catch(const std::exception& e){
+                    std::cerr<<"[WebSocket] open_handler: "<<e.what()<<'\n';
+                    ForceDisconnect(new_hdl);
+                }
+                catch(...){
+                    std::cerr<<"[WebSocket] open_handler: non-std exception\n";
+                    ForceDisconnect(new_hdl);
+                }
+            }
         );
 
         svr_core.set_close_handler(
-            [this](hdl close_hdl){ Close(close_hdl); }
+            [this](hdl close_hdl){
+                try{
+                    Close(close_hdl);
+                }
+                catch(const std::exception& e){
+                    std::cerr<<"[WebSocket] close_handler: "<<e.what()<<'\n';
+                    EraseConnMapsIfHeld(close_hdl);
+                }
+                catch(...){
+                    std::cerr<<"[WebSocket] close_handler: non-std exception\n";
+                    EraseConnMapsIfHeld(close_hdl);
+                }
+            }
         );
 
         svr_core.set_message_handler(
             [this](hdl client,msgbody msg){
-                MsgHandler(client,msg);
+                try{
+                    if(msg->get_opcode() == websocketpp::frame::opcode::binary){
+                        BinaryRelayForward(client,msg);
+                    }
+                    else MsgHandler(client,msg);
+                }
+                catch(const std::exception& e){
+                    std::cerr<<"[WebSocket] message_handler: "<<e.what()<<'\n';
+                    ForceDisconnect(client);
+                }
+                catch(...){
+                    std::cerr<<"[WebSocket] message_handler: non-std exception\n";
+                    ForceDisconnect(client);
+                }
             }
         );
     }
 };
+
+void WebSocketSvr::ForceDisconnect(hdl c){
+    try{
+        svr_core.close(c,websocketpp::close::status::internal_endpoint_error,"server handler error");
+    }
+    catch(const std::exception& e){
+        std::cerr<<"[WebSocket] ForceDisconnect(close): "<<e.what()<<'\n';
+    }
+    catch(...){
+        std::cerr<<"[WebSocket] ForceDisconnect(close): unknown exception\n";
+    }
+}
+
+void WebSocketSvr::EraseConnMapsIfHeld(hdl close_hdl){
+    std::unique_lock<std::mutex> lock(conn_lock);
+    auto it = conn_map.find(close_hdl);
+    if(it == conn_map.end()) return;
+    const std::string pid = it->second;
+    conn_list.erase(pid);
+    conn_map.erase(it);
+}
 
 void WebSocketSvr::Open(hdl new_conn_hdl){
     auto conn = svr_core.get_con_from_hdl(new_conn_hdl);
@@ -153,14 +224,20 @@ void WebSocketSvr::Open(hdl new_conn_hdl){
 }
 
 void WebSocketSvr::Close(hdl close_hdl){
-    const std::string pid = conn_map[close_hdl];
+    std::string pid;
+    {
+        std::unique_lock<std::mutex> lock(conn_lock);
+        auto it = conn_map.find(close_hdl);
+        if(it == conn_map.end()) return;
+        pid = it->second;
+        conn_list.erase(pid);
+        conn_map.erase(it);
+    }
     Json::Value res_list = GetJsonFromStr(redis_pool->GetConnection()->HGet(pid.c_str())["resource_list"].asString());
     for(auto& res : res_list){
         redis_pool->GetConnection()->SRem(res.asString(),pid);
     }
     redis_pool->GetConnection()->Del(pid.c_str());
-    conn_list.erase(pid);
-    conn_map.erase(close_hdl);
 }
 
 void WebSocketSvr::Update(const Json::Value update_args,const std::string client_id){
@@ -252,5 +329,75 @@ void WebSocketSvr::ConnUpdate(const Json::Value msg,const std::string client_id)
     else res["status"] = DATA_FORMAT_ERR;
 
     svr_core.send(conn_list[client_id],res.toStyledString(),websocketpp::frame::opcode::text);
+}
+
+void WebSocketSvr::WriteRelayId16(char* out,const std::string& id){
+    const std::size_t n = std::min(id.size(), RELAY_ID_FIELD);
+    std::memcpy(out, id.data(), n);
+    if(n < RELAY_ID_FIELD)
+        std::memset(out + n, ' ', RELAY_ID_FIELD - n);
+}
+
+std::string WebSocketSvr::TrimRelayId16(const char* field){
+    std::size_t end = RELAY_ID_FIELD;
+    while(end > 0 && static_cast<unsigned char>(field[end - 1]) == ' ')
+        --end;
+    return std::string(field, end);
+}
+
+void WebSocketSvr::SendBinaryRelayNotice(hdl client,const std::string& host_id,int status){
+    Json::Value res;
+    res["action"] = "binary_relay";
+    res["host_id"] = host_id.empty() ? Json::Value() : Json::Value(host_id);
+    res["data"] = Json::nullValue;
+    res["status"] = status;
+    svr_core.send(client, res.toStyledString(), websocketpp::frame::opcode::text);
+}
+
+void WebSocketSvr::BinaryRelayForward(hdl client,msgbody msg){
+    const std::string& pl = msg->get_payload();
+    if(pl.size() < RELAY_ROUTE_HEADER){
+        std::string hid;
+        {
+            std::unique_lock<std::mutex> lock(conn_lock);
+            auto it = conn_map.find(client);
+            if(it != conn_map.end()) hid = it->second;
+        }
+        SendBinaryRelayNotice(client, hid, DATA_FORMAT_ERR);
+        return;
+    }
+
+    std::string out = pl;
+    hdl target{};
+    bool have_target = false;
+
+    {
+        std::unique_lock<std::mutex> lock(conn_lock);
+        auto from_it = conn_map.find(client);
+        if(from_it == conn_map.end()){
+            lock.unlock();
+            SendBinaryRelayNotice(client, "", VERIFY_ERR);
+            return;
+        }
+        const std::string& from_id = from_it->second;
+        const std::string to_id = TrimRelayId16(pl.data() + RELAY_ID_FIELD);
+        if(to_id.empty()){
+            lock.unlock();
+            SendBinaryRelayNotice(client, from_id, DATA_FORMAT_ERR);
+            return;
+        }
+        auto to_it = conn_list.find(to_id);
+        if(to_it == conn_list.end()){
+            lock.unlock();
+            SendBinaryRelayNotice(client, from_id, NO_SUCH_PEER);
+            return;
+        }
+        WriteRelayId16(&out[0], from_id);
+        target = to_it->second;
+        have_target = true;
+    }
+
+    if(have_target)
+        svr_core.send(target, out, websocketpp::frame::opcode::binary);
 }
 #endif
